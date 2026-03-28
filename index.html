@@ -5,17 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DebtZero — Debt Payoff Tracker</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body>
+  <!-- Confetti Canvas -->
+  <canvas id="confetti-canvas"></canvas>
+
+  <!-- Motivation Banner -->
+  <div class="motivation-banner" id="motivation-banner">
+    <span class="motivation-icon">&#9889;</span>
+    <span class="motivation-text" id="motivation-text"></span>
+    <button class="motivation-refresh" id="motivation-refresh" title="New quote">&#8635;</button>
+  </div>
+
   <header>
     <div class="header-left">
       <h1>Debt<span class="accent">Zero</span></h1>
       <p class="tagline">Track. Strategize. Eliminate.</p>
     </div>
-    <button id="theme-toggle" aria-label="Toggle theme">🌙</button>
+    <div class="header-right">
+      <div class="streak-badge" id="streak-badge" title="Payment streak">
+        <span class="streak-fire">&#128293;</span>
+        <span class="streak-count" id="streak-count">0</span>
+      </div>
+      <button id="theme-toggle" aria-label="Toggle theme">&#127769;</button>
+    </div>
   </header>
 
   <main>
+    <!-- Milestones -->
+    <section class="milestones" id="milestones-section" style="display:none;">
+      <div class="milestone-track" id="milestone-track"></div>
+    </section>
+
     <!-- Dashboard Cards -->
     <section class="dashboard">
       <div class="card summary-card">
@@ -31,8 +53,8 @@
         <span class="card-value" id="debt-count">0</span>
       </div>
       <div class="card summary-card">
-        <span class="card-label">Avg Interest Rate</span>
-        <span class="card-value" id="avg-rate">0.0%</span>
+        <span class="card-label">Est. Debt-Free Date</span>
+        <span class="card-value card-value-sm" id="debt-free-date">--</span>
       </div>
     </section>
 
@@ -46,6 +68,22 @@
         <div class="progress-fill" id="progress-fill"></div>
       </div>
       <p class="progress-sub" id="progress-sub">Add debts and log payments to track your progress.</p>
+    </section>
+
+    <!-- Payoff Timeline Chart -->
+    <section class="card chart-section">
+      <h2>Payoff Timeline</h2>
+      <div class="chart-controls">
+        <div class="extra-payment-control">
+          <label for="extra-payment-slider">Extra Monthly Payment: <strong id="extra-payment-display">$0</strong></label>
+          <input type="range" id="extra-payment-slider" min="0" max="2000" step="25" value="0">
+        </div>
+        <div class="chart-legend" id="chart-legend"></div>
+      </div>
+      <div class="chart-container">
+        <canvas id="payoff-chart"></canvas>
+      </div>
+      <div class="chart-summary" id="chart-summary"></div>
     </section>
 
     <!-- Strategy Comparison -->
@@ -65,11 +103,18 @@
       <form id="debt-form">
         <div class="form-grid">
           <div class="form-group">
+            <label for="debt-type">Type</label>
+            <select id="debt-type">
+              <option value="loan">Loan</option>
+              <option value="credit_card">Credit Card</option>
+            </select>
+          </div>
+          <div class="form-group">
             <label for="debt-name">Name</label>
             <input type="text" id="debt-name" placeholder="e.g. Visa Card" required>
           </div>
           <div class="form-group">
-            <label for="debt-balance">Balance ($)</label>
+            <label for="debt-balance">Current Balance ($)</label>
             <input type="number" id="debt-balance" placeholder="5000" min="0" step="0.01" required>
           </div>
           <div class="form-group">
@@ -81,6 +126,37 @@
             <input type="number" id="debt-minimum" placeholder="150" min="0" step="0.01" required>
           </div>
         </div>
+
+        <!-- Amortization fields (loans only) -->
+        <div class="amort-toggle" id="amort-toggle">
+          <label class="toggle-label">
+            <input type="checkbox" id="has-amortization">
+            <span class="toggle-slider"></span>
+            Has Amortization Schedule
+          </label>
+        </div>
+        <div class="amort-fields" id="amort-fields" style="display:none;">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="amort-principal">Original Principal ($)</label>
+              <input type="number" id="amort-principal" placeholder="25000" min="0" step="0.01">
+            </div>
+            <div class="form-group">
+              <label for="amort-term">Loan Term (months)</label>
+              <input type="number" id="amort-term" placeholder="60" min="1" step="1">
+            </div>
+            <div class="form-group">
+              <label for="amort-emi">EMI / Fixed Payment ($)</label>
+              <input type="number" id="amort-emi" placeholder="483.15" min="0" step="0.01">
+            </div>
+            <div class="form-group">
+              <label for="amort-payments-made">Payments Already Made</label>
+              <input type="number" id="amort-payments-made" placeholder="12" min="0" step="1">
+            </div>
+          </div>
+          <div class="amort-preview" id="amort-preview"></div>
+        </div>
+
         <button type="submit" class="btn-primary">Add Debt</button>
       </form>
     </section>
@@ -89,34 +165,77 @@
     <section class="card">
       <h2>Your Debts</h2>
       <div id="debt-list" class="debt-list">
-        <p class="empty-state" id="empty-state">No debts added yet. Use the form above to get started!</p>
+        <p class="empty-state">No debts added yet. Use the form above to get started!</p>
       </div>
     </section>
 
-    <!-- Payment Log -->
+    <!-- Log a Payment / Add Purchase -->
     <section class="card">
-      <h2>Log a Payment</h2>
-      <form id="payment-form" class="payment-form">
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="payment-debt">Debt</label>
-            <select id="payment-debt" required>
-              <option value="">Select a debt</option>
-            </select>
+      <div class="transaction-tabs">
+        <button class="tab-btn active" data-tab="payment">Log a Payment</button>
+        <button class="tab-btn" data-tab="purchase">Add Purchase (Credit Card)</button>
+      </div>
+
+      <!-- Payment Tab -->
+      <div class="tab-content active" id="tab-payment">
+        <form id="payment-form" class="payment-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="payment-debt">Debt</label>
+              <select id="payment-debt" required>
+                <option value="">Select a debt</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="payment-amount">Amount ($)</label>
+              <input type="number" id="payment-amount" placeholder="200" min="0.01" step="0.01" required>
+            </div>
           </div>
-          <div class="form-group">
-            <label for="payment-amount">Amount ($)</label>
-            <input type="number" id="payment-amount" placeholder="200" min="0.01" step="0.01" required>
+          <button type="submit" class="btn-primary">Log Payment</button>
+        </form>
+      </div>
+
+      <!-- Purchase Tab -->
+      <div class="tab-content" id="tab-purchase">
+        <form id="purchase-form" class="payment-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="purchase-card">Credit Card</label>
+              <select id="purchase-card" required>
+                <option value="">Select a credit card</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="purchase-desc">Description</label>
+              <input type="text" id="purchase-desc" placeholder="e.g. Groceries" required>
+            </div>
+            <div class="form-group">
+              <label for="purchase-amount">Amount ($)</label>
+              <input type="number" id="purchase-amount" placeholder="85.50" min="0.01" step="0.01" required>
+            </div>
           </div>
-        </div>
-        <button type="submit" class="btn-primary">Log Payment</button>
-      </form>
-      <div id="payment-history" class="payment-history"></div>
+          <button type="submit" class="btn-primary btn-danger-style">Add Purchase</button>
+        </form>
+      </div>
+
+      <!-- Transaction History -->
+      <h3 class="history-title">Recent Transactions</h3>
+      <div id="transaction-history" class="payment-history"></div>
+    </section>
+
+    <!-- Amortization Schedule Viewer -->
+    <section class="card" id="amort-viewer-section" style="display:none;">
+      <h2>Amortization Schedule</h2>
+      <div class="form-group" style="max-width:300px; margin-bottom:1rem;">
+        <label for="amort-viewer-select">Select Loan</label>
+        <select id="amort-viewer-select"></select>
+      </div>
+      <div class="amort-table-wrap" id="amort-table-wrap"></div>
     </section>
   </main>
 
   <footer>
-    <p>DebtZero &mdash; All data stored locally in your browser.</p>
+    <p>DebtZero &mdash; All data stored locally in your browser. You've got this!</p>
   </footer>
 
   <script src="app.js"></script>

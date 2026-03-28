@@ -8,13 +8,21 @@
   --text-muted: #8b8fa3;
   --accent: #6c63ff;
   --accent-hover: #5a52e0;
+  --accent-glow: rgba(108, 99, 255, 0.15);
   --danger: #ef4565;
   --danger-hover: #d63a57;
   --success: #2cb67d;
+  --success-glow: rgba(44, 182, 125, 0.15);
+  --warning: #f5a623;
   --border: #2a2d3a;
   --input-bg: #12141c;
   --shadow: 0 2px 12px rgba(0,0,0,0.3);
   --radius: 12px;
+  --chart-line1: #6c63ff;
+  --chart-line2: #2cb67d;
+  --chart-line3: #f5a623;
+  --chart-fill1: rgba(108, 99, 255, 0.1);
+  --chart-fill2: rgba(44, 182, 125, 0.1);
 }
 
 [data-theme="light"] {
@@ -25,6 +33,10 @@
   --border: #dde0e8;
   --input-bg: #f7f8fa;
   --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  --accent-glow: rgba(108, 99, 255, 0.08);
+  --success-glow: rgba(44, 182, 125, 0.08);
+  --chart-fill1: rgba(108, 99, 255, 0.06);
+  --chart-fill2: rgba(44, 182, 125, 0.06);
 }
 
 body {
@@ -35,6 +47,48 @@ body {
   min-height: 100vh;
   transition: background 0.3s, color 0.3s;
 }
+
+/* === Confetti === */
+#confetti-canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* === Motivation Banner === */
+.motivation-banner {
+  background: linear-gradient(135deg, var(--accent-glow), var(--success-glow));
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  color: var(--text);
+  text-align: center;
+}
+
+.motivation-icon { font-size: 1.1rem; }
+
+.motivation-text {
+  font-weight: 500;
+  font-style: italic;
+}
+
+.motivation-refresh {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  transition: color 0.2s;
+}
+
+.motivation-refresh:hover { color: var(--accent); }
 
 /* === Header === */
 header {
@@ -60,6 +114,27 @@ header h1 {
   margin-top: 2px;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.streak-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.streak-fire { font-size: 1rem; }
+.streak-count { color: var(--warning); }
+
 #theme-toggle {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -72,9 +147,46 @@ header h1 {
   align-items: center;
   justify-content: center;
   transition: background 0.2s;
+  color: var(--text);
 }
 
 #theme-toggle:hover { background: var(--border); }
+
+/* === Milestones === */
+.milestones {
+  padding: 0;
+}
+
+.milestone-track {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.milestone {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 99px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  transition: all 0.3s;
+}
+
+.milestone.achieved {
+  background: var(--success);
+  color: #fff;
+  border-color: var(--success);
+}
+
+.milestone .ms-icon { font-size: 1rem; }
 
 /* === Main Layout === */
 main {
@@ -100,6 +212,8 @@ main {
   font-weight: 700;
   margin-bottom: 1rem;
 }
+
+.card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; }
 
 /* === Dashboard === */
 .dashboard {
@@ -129,6 +243,8 @@ main {
   font-weight: 800;
   color: var(--accent);
 }
+
+.card-value-sm { font-size: 1.1rem; }
 
 /* === Progress === */
 .progress-header {
@@ -168,6 +284,84 @@ main {
   font-size: 0.85rem;
   color: var(--text-muted);
 }
+
+/* === Chart === */
+.chart-section h2 { margin-bottom: 0.5rem; }
+
+.chart-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.extra-payment-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: 200px;
+}
+
+.extra-payment-control label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.extra-payment-control input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 300px;
+}
+
+.chart-container canvas { width: 100% !important; }
+
+.chart-summary {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  font-size: 0.85rem;
+}
+
+.chart-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.chart-summary-item .cs-label { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 600; }
+.chart-summary-item .cs-value { font-weight: 700; }
+.cs-saved { color: var(--success); }
+.cs-faster { color: var(--accent); }
 
 /* === Strategy === */
 .strategy-toggle {
@@ -294,6 +488,158 @@ main {
 
 .btn-primary:hover { background: var(--accent-hover); }
 
+.btn-danger-style {
+  background: var(--danger);
+}
+.btn-danger-style:hover { background: var(--danger-hover); }
+
+/* === Amortization Toggle === */
+.amort-toggle {
+  margin-bottom: 1rem;
+}
+
+.toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.toggle-label input { display: none; }
+
+.toggle-slider {
+  width: 38px;
+  height: 20px;
+  background: var(--border);
+  border-radius: 99px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.toggle-label input:checked + .toggle-slider {
+  background: var(--accent);
+}
+
+.toggle-label input:checked + .toggle-slider::after {
+  transform: translateX(18px);
+}
+
+.amort-fields {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.amort-preview {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 0.5rem 0;
+}
+
+.amort-preview .amort-calc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-top: 0.4rem;
+}
+
+.amort-preview .ac-item { display: flex; flex-direction: column; gap: 0.1rem; }
+.amort-preview .ac-label { font-size: 0.72rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.3px; }
+.amort-preview .ac-value { font-weight: 700; color: var(--text); font-size: 0.95rem; }
+
+/* === Amortization Table === */
+.amort-table-wrap {
+  max-height: 400px;
+  overflow: auto;
+}
+
+.amort-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.amort-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-card);
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 2px solid var(--border);
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+}
+
+.amort-table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.amort-table tr.past-row { opacity: 0.5; }
+.amort-table tr.current-row { background: var(--accent-glow); font-weight: 600; }
+
+/* === Tabs === */
+.transaction-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1.25rem;
+  border-bottom: 2px solid var(--border);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 0.7rem 1rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tab-btn:hover:not(.active) { color: var(--text); }
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.history-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-muted);
+}
+
 /* === Debt List === */
 .debt-list { display: flex; flex-direction: column; gap: 0.75rem; }
 
@@ -321,13 +667,15 @@ main {
   width: 42px;
   height: 42px;
   border-radius: 10px;
-  background: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.1rem;
   flex-shrink: 0;
 }
+
+.debt-icon.type-loan { background: var(--accent); }
+.debt-icon.type-credit_card { background: var(--warning); }
 
 .debt-info { flex: 1; min-width: 0; }
 
@@ -337,7 +685,23 @@ main {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
+
+.debt-type-badge {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.badge-loan { background: var(--accent-glow); color: var(--accent); }
+.badge-credit_card { background: rgba(245, 166, 35, 0.15); color: var(--warning); }
 
 .debt-info .debt-meta {
   font-size: 0.82rem;
@@ -381,7 +745,7 @@ main {
   border-color: var(--danger);
 }
 
-/* === Payment === */
+/* === Payment / Transaction History === */
 .payment-form { margin-bottom: 1rem; }
 
 .payment-history { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -398,7 +762,9 @@ main {
 }
 
 .payment-entry .pe-info { color: var(--text-muted); }
-.payment-entry .pe-amount { font-weight: 700; color: var(--success); }
+.payment-entry .pe-amount { font-weight: 700; }
+.pe-payment { color: var(--success); }
+.pe-purchase { color: var(--danger); }
 
 /* === Footer === */
 footer {
@@ -416,4 +782,6 @@ footer {
   .dashboard { grid-template-columns: repeat(2, 1fr); }
   .strategy-toggle { flex-direction: column; }
   .debt-item { flex-wrap: wrap; }
+  .chart-container { height: 220px; }
+  .motivation-banner { padding: 0.5rem 1rem; font-size: 0.8rem; }
 }
