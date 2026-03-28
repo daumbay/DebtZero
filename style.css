@@ -766,6 +766,133 @@ main {
 .pe-payment { color: var(--success); }
 .pe-purchase { color: var(--danger); }
 
+/* === Data Management === */
+.data-section h2 { margin-bottom: 0.5rem; }
+
+.data-info {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.data-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-ok { background: var(--success); }
+.status-warn { background: var(--warning); }
+
+.data-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.btn-data {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+
+.btn-data-icon { font-size: 1rem; }
+
+.btn-export {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.btn-export:hover { background: var(--accent-hover); }
+
+.btn-import {
+  background: var(--input-bg);
+  color: var(--text);
+}
+.btn-import:hover { border-color: var(--accent); color: var(--accent); }
+
+.btn-reset {
+  background: transparent;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.btn-reset:hover { background: var(--danger); color: #fff; }
+
+.data-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.data-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.dm-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 600;
+}
+
+.dm-value {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+/* Toast notification */
+.toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  z-index: 10000;
+  opacity: 0;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.toast-success { border-color: var(--success); }
+.toast-error { border-color: var(--danger); }
+
 /* === Footer === */
 footer {
   text-align: center;

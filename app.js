@@ -908,6 +908,142 @@ function recalcOriginalTotal() {
 }
 
 // ============================================================
+// DATA MANAGEMENT
+// ============================================================
+
+function showToast(message, type = 'success') {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `<span>${type === 'success' ? '\u{2705}' : '\u{274C}'}</span> ${escapeHtml(message)}`;
+  document.body.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => toast.classList.add('show'));
+  });
+
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+function renderDataMeta() {
+  const debtCount = debts.length;
+  const txCount = transactions.length;
+  const dataSize = new Blob([
+    localStorage.getItem('debtzero_debts') || '',
+    localStorage.getItem('debtzero_transactions') || '',
+    localStorage.getItem('debtzero_totalPaid') || '',
+    localStorage.getItem('debtzero_originalTotal') || '',
+  ]).size;
+
+  const lastTx = transactions.length > 0 ? transactions[transactions.length - 1].date : 'N/A';
+
+  $('#data-meta').innerHTML = `
+    <div class="data-meta-item"><span class="dm-label">Debts</span><span class="dm-value">${debtCount}</span></div>
+    <div class="data-meta-item"><span class="dm-label">Transactions</span><span class="dm-value">${txCount}</span></div>
+    <div class="data-meta-item"><span class="dm-label">Last Activity</span><span class="dm-value">${lastTx}</span></div>
+    <div class="data-meta-item"><span class="dm-label">Storage Used</span><span class="dm-value">${(dataSize / 1024).toFixed(1)} KB</span></div>
+  `;
+
+  const statusText = $('#data-status-text');
+  const statusDot = $('#data-status .status-dot');
+  if (debtCount > 0 || txCount > 0) {
+    statusText.textContent = 'All data saved locally. Consider exporting a backup.';
+    statusDot.className = 'status-dot status-ok';
+  } else {
+    statusText.textContent = 'No data yet. Add debts to get started.';
+    statusDot.className = 'status-dot status-warn';
+  }
+}
+
+// Export
+$('#btn-export').addEventListener('click', () => {
+  const data = {
+    version: 2,
+    exportDate: new Date().toISOString(),
+    debts,
+    transactions,
+    totalPaid,
+    originalTotal,
+  };
+
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `debtzero-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  showToast('Backup exported successfully!');
+});
+
+// Import
+$('#file-import').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const data = JSON.parse(evt.target.result);
+
+      if (!data.debts || !Array.isArray(data.debts)) {
+        throw new Error('Invalid backup file format.');
+      }
+
+      // Confirm overwrite
+      if (debts.length > 0 || transactions.length > 0) {
+        if (!confirm('This will replace all current data with the backup. Continue?')) {
+          return;
+        }
+      }
+
+      debts = data.debts;
+      transactions = data.transactions || [];
+      totalPaid = data.totalPaid || 0;
+      originalTotal = data.originalTotal || 0;
+
+      save();
+      render();
+      renderDataMeta();
+      showToast(`Backup restored! ${debts.length} debts, ${transactions.length} transactions loaded.`);
+    } catch (err) {
+      showToast('Failed to import: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+// Reset
+$('#btn-reset').addEventListener('click', () => {
+  if (!confirm('Are you sure? This will permanently erase ALL your debts, payments, and progress.')) return;
+  if (!confirm('Really? This cannot be undone. Click OK to confirm reset.')) return;
+
+  debts = [];
+  transactions = [];
+  totalPaid = 0;
+  originalTotal = 0;
+
+  localStorage.removeItem('debtzero_debts');
+  localStorage.removeItem('debtzero_transactions');
+  localStorage.removeItem('debtzero_totalPaid');
+  localStorage.removeItem('debtzero_originalTotal');
+
+  save();
+  render();
+  renderDataMeta();
+  showToast('All data has been reset.');
+});
+
+// ============================================================
 // INIT
 // ============================================================
 render();
+renderDataMeta();

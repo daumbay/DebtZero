@@ -232,6 +232,29 @@
       </div>
       <div class="amort-table-wrap" id="amort-table-wrap"></div>
     </section>
+
+    <!-- Data Management -->
+    <section class="card data-section">
+      <h2>Data Management</h2>
+      <p class="data-info">Your data is saved automatically in this browser. Use the options below to back up, restore, or reset your data.</p>
+      <div class="data-status" id="data-status">
+        <span class="status-dot status-ok"></span>
+        <span id="data-status-text">All data saved locally.</span>
+      </div>
+      <div class="data-actions">
+        <button class="btn-data btn-export" id="btn-export" title="Download a JSON backup file">
+          <span class="btn-data-icon">&#11015;</span> Export Backup
+        </button>
+        <label class="btn-data btn-import" title="Restore from a JSON backup file">
+          <span class="btn-data-icon">&#11014;</span> Import Backup
+          <input type="file" id="file-import" accept=".json" style="display:none;">
+        </label>
+        <button class="btn-data btn-reset" id="btn-reset" title="Erase all data and start fresh">
+          <span class="btn-data-icon">&#9888;</span> Reset All Data
+        </button>
+      </div>
+      <div class="data-meta" id="data-meta"></div>
+    </section>
   </main>
 
   <footer>
