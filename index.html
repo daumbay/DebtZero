@@ -34,6 +34,9 @@
   </header>
 
   <main>
+    <!-- Due Date Warnings -->
+    <div class="due-warnings" id="due-warnings"></div>
+
     <!-- Milestones -->
     <section class="milestones" id="milestones-section" style="display:none;">
       <div class="milestone-track" id="milestone-track"></div>
@@ -98,129 +101,20 @@
       <ol id="payoff-order" class="payoff-order"></ol>
     </section>
 
-    <!-- Add Debt Form -->
-    <section class="card form-section">
-      <h2>Add a Debt</h2>
-      <form id="debt-form">
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="debt-type">Type</label>
-            <select id="debt-type">
-              <option value="loan">Loan</option>
-              <option value="credit_card">Credit Card</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="debt-name">Name</label>
-            <input type="text" id="debt-name" placeholder="e.g. Visa Card" required>
-          </div>
-          <div class="form-group">
-            <label for="debt-balance">Current Balance ($)</label>
-            <input type="number" id="debt-balance" placeholder="5000" min="0" step="0.01" required>
-          </div>
-          <div class="form-group">
-            <label for="debt-rate">Interest Rate (%)</label>
-            <input type="number" id="debt-rate" placeholder="19.99" min="0" step="0.01" required>
-          </div>
-          <div class="form-group">
-            <label for="debt-minimum">Min. Payment ($)</label>
-            <input type="number" id="debt-minimum" placeholder="150" min="0" step="0.01" required>
-          </div>
-        </div>
-
-        <!-- Amortization fields (loans only) -->
-        <div class="amort-toggle" id="amort-toggle">
-          <label class="toggle-label">
-            <input type="checkbox" id="has-amortization">
-            <span class="toggle-slider"></span>
-            Has Amortization Schedule
-          </label>
-        </div>
-        <div class="amort-fields" id="amort-fields" style="display:none;">
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="amort-principal">Original Principal ($)</label>
-              <input type="number" id="amort-principal" placeholder="25000" min="0" step="0.01">
-            </div>
-            <div class="form-group">
-              <label for="amort-term">Loan Term (months)</label>
-              <input type="number" id="amort-term" placeholder="60" min="1" step="1">
-            </div>
-            <div class="form-group">
-              <label for="amort-emi">EMI / Fixed Payment ($)</label>
-              <input type="number" id="amort-emi" placeholder="483.15" min="0" step="0.01">
-            </div>
-            <div class="form-group">
-              <label for="amort-payments-made">Payments Already Made</label>
-              <input type="number" id="amort-payments-made" placeholder="12" min="0" step="1">
-            </div>
-          </div>
-          <div class="amort-preview" id="amort-preview"></div>
-        </div>
-
-        <button type="submit" class="btn-primary">Add Debt</button>
-      </form>
-    </section>
-
     <!-- Debt List -->
     <section class="card">
-      <h2>Your Debts</h2>
+      <div class="section-header">
+        <h2>Your Debts</h2>
+        <button class="btn-add" id="btn-add-debt" title="Add a new debt">+</button>
+      </div>
       <div id="debt-list" class="debt-list">
-        <p class="empty-state">No debts added yet. Use the form above to get started!</p>
+        <p class="empty-state">No debts added yet. Click + above to get started!</p>
       </div>
     </section>
 
-    <!-- Log a Payment / Add Purchase -->
+    <!-- Transaction History -->
     <section class="card">
-      <div class="transaction-tabs">
-        <button class="tab-btn active" data-tab="payment">Log a Payment</button>
-        <button class="tab-btn" data-tab="purchase">Add Purchase (Credit Card)</button>
-      </div>
-
-      <!-- Payment Tab -->
-      <div class="tab-content active" id="tab-payment">
-        <form id="payment-form" class="payment-form">
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="payment-debt">Debt</label>
-              <select id="payment-debt" required>
-                <option value="">Select a debt</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="payment-amount">Amount ($)</label>
-              <input type="number" id="payment-amount" placeholder="200" min="0.01" step="0.01" required>
-            </div>
-          </div>
-          <button type="submit" class="btn-primary">Log Payment</button>
-        </form>
-      </div>
-
-      <!-- Purchase Tab -->
-      <div class="tab-content" id="tab-purchase">
-        <form id="purchase-form" class="payment-form">
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="purchase-card">Credit Card</label>
-              <select id="purchase-card" required>
-                <option value="">Select a credit card</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="purchase-desc">Description</label>
-              <input type="text" id="purchase-desc" placeholder="e.g. Groceries" required>
-            </div>
-            <div class="form-group">
-              <label for="purchase-amount">Amount ($)</label>
-              <input type="number" id="purchase-amount" placeholder="85.50" min="0.01" step="0.01" required>
-            </div>
-          </div>
-          <button type="submit" class="btn-primary btn-danger-style">Add Purchase</button>
-        </form>
-      </div>
-
-      <!-- Transaction History -->
-      <h3 class="history-title">Recent Transactions</h3>
+      <h2>Recent Transactions</h2>
       <div id="transaction-history" class="payment-history"></div>
     </section>
 
@@ -233,41 +127,157 @@
       </div>
       <div class="amort-table-wrap" id="amort-table-wrap"></div>
     </section>
-
-    <!-- Data Management -->
-    <section class="card data-section">
-      <h2>Data Management</h2>
-      <p class="data-info">Your data is saved automatically in this browser. Use the options below to back up, restore, or reset your data.</p>
-      <div class="data-status" id="data-status">
-        <span class="status-dot status-ok"></span>
-        <span id="data-status-text">All data saved locally.</span>
-      </div>
-      <div class="data-actions">
-        <button class="btn-data btn-export" id="btn-export" title="Download a JSON backup file">
-          <span class="btn-data-icon">&#11015;</span> Export Backup
-        </button>
-        <label class="btn-data btn-import" title="Restore from a JSON backup file">
-          <span class="btn-data-icon">&#11014;</span> Import Backup
-          <input type="file" id="file-import" accept=".json" style="display:none;">
-        </label>
-        <button class="btn-data btn-reset" id="btn-reset" title="Erase all data and start fresh">
-          <span class="btn-data-icon">&#9888;</span> Reset All Data
-        </button>
-      </div>
-      <div class="data-meta" id="data-meta"></div>
-    </section>
   </main>
 
   <footer>
     <p>DebtZero &mdash; All data stored locally in your browser. You've got this!</p>
   </footer>
 
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- Add Debt Modal -->
+  <div class="modal-overlay" id="add-debt-overlay">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <h2>Add a Debt</h2>
+        <button class="modal-close" data-close="add-debt-overlay">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="debt-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="debt-type">Type</label>
+              <select id="debt-type">
+                <option value="loan">Loan</option>
+                <option value="credit_card">Credit Card</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="debt-name">Name</label>
+              <input type="text" id="debt-name" placeholder="e.g. Visa Card" required>
+            </div>
+            <div class="form-group">
+              <label for="debt-balance">Current Balance ($)</label>
+              <input type="number" id="debt-balance" placeholder="5000" min="0" step="0.01" required>
+            </div>
+            <div class="form-group">
+              <label for="debt-rate">Interest Rate (%)</label>
+              <input type="number" id="debt-rate" placeholder="19.99" min="0" step="0.01" required>
+            </div>
+            <div class="form-group">
+              <label for="debt-minimum">Min. Payment ($)</label>
+              <input type="number" id="debt-minimum" placeholder="150" min="0" step="0.01" required>
+            </div>
+            <div class="form-group" id="due-day-group">
+              <label for="debt-due-day">Due Day of Month</label>
+              <input type="number" id="debt-due-day" placeholder="15" min="1" max="31" step="1">
+            </div>
+          </div>
+
+          <!-- Amortization fields (loans only) -->
+          <div class="amort-toggle" id="amort-toggle">
+            <label class="toggle-label">
+              <input type="checkbox" id="has-amortization">
+              <span class="toggle-slider"></span>
+              Has Amortization Schedule
+            </label>
+          </div>
+          <div class="amort-fields" id="amort-fields" style="display:none;">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="amort-principal">Original Principal ($)</label>
+                <input type="number" id="amort-principal" placeholder="25000" min="0" step="0.01">
+              </div>
+              <div class="form-group">
+                <label for="amort-term">Loan Term (months)</label>
+                <input type="number" id="amort-term" placeholder="60" min="1" step="1">
+              </div>
+              <div class="form-group">
+                <label for="amort-emi">EMI / Fixed Payment ($)</label>
+                <input type="number" id="amort-emi" placeholder="483.15" min="0" step="0.01">
+              </div>
+              <div class="form-group">
+                <label for="amort-payments-made">Payments Already Made</label>
+                <input type="number" id="amort-payments-made" placeholder="12" min="0" step="1">
+              </div>
+              <div class="form-group">
+                <label for="amort-start-date">Loan Start Date</label>
+                <input type="date" id="amort-start-date">
+              </div>
+            </div>
+            <div class="amort-preview" id="amort-preview"></div>
+          </div>
+
+          <button type="submit" class="btn-primary" style="width:100%;">Add Debt</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Modal -->
+  <div class="modal-overlay" id="payment-overlay">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h2>Log Payment</h2>
+        <button class="modal-close" data-close="payment-overlay">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="payment-form">
+          <input type="hidden" id="payment-debt-idx">
+          <p class="modal-debt-name" id="payment-debt-name"></p>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="payment-amount">Amount ($)</label>
+              <input type="number" id="payment-amount" placeholder="200" min="0.01" step="0.01" required>
+            </div>
+            <div class="form-group">
+              <label for="payment-date">Date</label>
+              <input type="date" id="payment-date" required>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary" style="width:100%;">Log Payment</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Purchase Modal (Credit Cards only) -->
+  <div class="modal-overlay" id="purchase-overlay">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h2>Add Purchase</h2>
+        <button class="modal-close" data-close="purchase-overlay">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="purchase-form">
+          <input type="hidden" id="purchase-card-idx">
+          <p class="modal-debt-name" id="purchase-card-name"></p>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="purchase-desc">Description</label>
+              <input type="text" id="purchase-desc" placeholder="e.g. Groceries" required>
+            </div>
+            <div class="form-group">
+              <label for="purchase-amount">Amount ($)</label>
+              <input type="number" id="purchase-amount" placeholder="85.50" min="0.01" step="0.01" required>
+            </div>
+            <div class="form-group">
+              <label for="purchase-date">Date</label>
+              <input type="date" id="purchase-date" required>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary btn-danger-style" style="width:100%;">Add Purchase</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Settings Modal -->
   <div class="modal-overlay" id="settings-overlay">
-    <div class="modal" id="settings-modal">
+    <div class="modal modal-lg">
       <div class="modal-header">
         <h2>Settings</h2>
-        <button class="modal-close" id="settings-close">&times;</button>
+        <button class="modal-close" data-close="settings-overlay">&times;</button>
       </div>
       <div class="modal-body">
         <div class="settings-group">
@@ -344,6 +354,32 @@
         <div class="settings-group">
           <label class="settings-label">Preview</label>
           <div class="settings-preview" id="settings-preview">$50,200.00</div>
+        </div>
+
+        <!-- Divider -->
+        <div class="settings-divider"></div>
+
+        <!-- Data & Backup (moved from standalone section) -->
+        <div class="settings-group">
+          <label class="settings-label">Data &amp; Backup</label>
+          <p class="data-info">Your data is saved automatically in this browser.</p>
+          <div class="data-status" id="data-status">
+            <span class="status-dot status-ok"></span>
+            <span id="data-status-text">All data saved locally.</span>
+          </div>
+          <div class="data-actions">
+            <button class="btn-data btn-export" id="btn-export" title="Download a JSON backup file" type="button">
+              <span class="btn-data-icon">&#11015;</span> Export
+            </button>
+            <label class="btn-data btn-import" title="Restore from a JSON backup file">
+              <span class="btn-data-icon">&#11014;</span> Import
+              <input type="file" id="file-import" accept=".json" style="display:none;">
+            </label>
+            <button class="btn-data btn-reset" id="btn-reset" title="Erase all data and start fresh" type="button">
+              <span class="btn-data-icon">&#9888;</span> Reset
+            </button>
+          </div>
+          <div class="data-meta" id="data-meta"></div>
         </div>
       </div>
       <div class="modal-footer">

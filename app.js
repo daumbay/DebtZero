@@ -29,6 +29,22 @@ let settings = JSON.parse(localStorage.getItem('debtzero_settings') || 'null') |
   }
 })();
 
+// Migrate old date formats (en-US locale strings) to ISO
+(function migrateDates() {
+  let changed = false;
+  transactions.forEach(t => {
+    if (t.date && !t.date.match(/^\d{4}-\d{2}-\d{2}/)) {
+      // Try to parse old date format
+      const parsed = new Date(t.date);
+      if (!isNaN(parsed)) {
+        t.date = parsed.toISOString().slice(0, 10);
+        changed = true;
+      }
+    }
+  });
+  if (changed) localStorage.setItem('debtzero_transactions', JSON.stringify(transactions));
+})();
+
 // === DOM Refs ===
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -63,7 +79,6 @@ function fmt(n) {
   const showSym = settings.showSymbol;
 
   if (settings.numberFormat === 'plain') {
-    // No thousand separators, just decimal
     const fixed = Math.abs(n).toFixed(2);
     const sign = n < 0 ? '-' : '';
     if (showSym) {
@@ -104,6 +119,50 @@ function fmtMonth(date) {
   return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 
+// === Date Helpers ===
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function fmtDate(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function ordSuffix(n) {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+// === Due Date Status ===
+function getDueStatus(debt) {
+  if (!debt.dueDay) return null;
+  const today = new Date();
+  const day = today.getDate();
+  const dueDay = debt.dueDay;
+
+  // Check if there's a payment this month
+  const thisMonth = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+  const paidThisMonth = transactions.some(t =>
+    t.type === 'payment' &&
+    t.debtName === debt.name &&
+    t.date && t.date.startsWith(thisMonth)
+  );
+
+  if (paidThisMonth) return null; // Already paid this month
+
+  if (day > dueDay) {
+    return { status: 'overdue', label: 'OVERDUE', detail: `Due on the ${ordSuffix(dueDay)}` };
+  }
+  const daysUntil = dueDay - day;
+  if (daysUntil <= 5) {
+    return { status: 'due-soon', label: 'DUE SOON', detail: `Due in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}` };
+  }
+  return null;
+}
+
 // === Save ===
 function save() {
   localStorage.setItem('debtzero_debts', JSON.stringify(debts));
@@ -116,8 +175,6 @@ function save() {
 function render() {
   renderDashboard();
   renderDebtList();
-  renderPaymentSelect();
-  renderPurchaseSelect();
   renderTransactionHistory();
   renderStrategy();
   renderProgress();
@@ -126,31 +183,58 @@ function render() {
   renderMotivation();
   renderStreak();
   renderAmortViewer();
+  renderDueWarnings();
 }
+
+// ============================================================
+// GENERIC MODAL SYSTEM
+// ============================================================
+function openModal(id) {
+  const overlay = document.getElementById(id);
+  if (overlay) overlay.classList.add('open');
+}
+
+function closeModal(id) {
+  const overlay = document.getElementById(id);
+  if (overlay) overlay.classList.remove('open');
+}
+
+// Close on [data-close] buttons
+document.addEventListener('click', (e) => {
+  const closeBtn = e.target.closest('[data-close]');
+  if (closeBtn) {
+    closeModal(closeBtn.dataset.close);
+    return;
+  }
+  // Close on overlay background click
+  if (e.target.classList.contains('modal-overlay') && e.target.classList.contains('open')) {
+    e.target.classList.remove('open');
+  }
+});
 
 // ============================================================
 // MOTIVATION SYSTEM
 // ============================================================
 const QUOTES = [
-  "The secret of getting ahead is getting started. — Mark Twain",
-  "A journey of a thousand miles begins with a single step. — Lao Tzu",
-  "Debt is the slavery of the free. — Publilius Syrus",
-  "Do not save what is left after spending, but spend what is left after saving. — Warren Buffett",
-  "The only way to permanently change the temperature in the room is to reset the thermostat. — Dave Ramsey",
-  "Financial freedom is available to those who learn about it and work for it. — Robert Kiyosaki",
+  "The secret of getting ahead is getting started. \u2014 Mark Twain",
+  "A journey of a thousand miles begins with a single step. \u2014 Lao Tzu",
+  "Debt is the slavery of the free. \u2014 Publilius Syrus",
+  "Do not save what is left after spending, but spend what is left after saving. \u2014 Warren Buffett",
+  "The only way to permanently change the temperature in the room is to reset the thermostat. \u2014 Dave Ramsey",
+  "Financial freedom is available to those who learn about it and work for it. \u2014 Robert Kiyosaki",
   "Every payment you make is a step closer to freedom.",
-  "You don't have to be great to start, but you have to start to be great. — Zig Ziglar",
-  "Small daily improvements over time lead to stunning results. — Robin Sharma",
+  "You don't have to be great to start, but you have to start to be great. \u2014 Zig Ziglar",
+  "Small daily improvements over time lead to stunning results. \u2014 Robin Sharma",
   "The best time to plant a tree was 20 years ago. The second best time is now.",
   "Compound interest works for you or against you. Make it work FOR you.",
   "Being debt-free is worth every sacrifice you make today.",
   "Your future self will thank you for the payments you make today.",
-  "It's not about how much money you make — it's about how much you keep.",
+  "It's not about how much money you make \u2014 it's about how much you keep.",
   "Every dollar paid toward debt is a dollar of freedom earned.",
   "Discipline is choosing between what you want now and what you want most.",
-  "The pain of discipline is far less than the pain of regret. — Sarah Bombell",
-  "Money looks better in your bank account than on your feet. — Sophia Amoruso",
-  "Act as if what you do makes a difference. It does. — William James",
+  "The pain of discipline is far less than the pain of regret. \u2014 Sarah Bombell",
+  "Money looks better in your bank account than on your feet. \u2014 Sophia Amoruso",
+  "Act as if what you do makes a difference. It does. \u2014 William James",
   "You are one payment closer to zero. Keep going!"
 ];
 
@@ -162,7 +246,7 @@ function renderMotivation() {
   } else if (pct >= 100) {
     contextQuote = "YOU DID IT! You are officially DEBT FREE! Celebrate this incredible achievement!";
   } else if (pct >= 75) {
-    contextQuote = "The finish line is in sight! You've paid off " + pct.toFixed(0) + "% — keep charging forward!";
+    contextQuote = "The finish line is in sight! You've paid off " + pct.toFixed(0) + "% \u2014 keep charging forward!";
   } else if (pct >= 50) {
     contextQuote = "HALFWAY THERE! You've crossed the 50% mark. The momentum is with you!";
   } else if (pct >= 25) {
@@ -185,7 +269,6 @@ function getStreak() {
     .reverse();
   if (paymentDates.length === 0) return 0;
 
-  // Count unique months with payments
   const months = new Set();
   paymentDates.forEach(d => {
     const dt = new Date(d);
@@ -339,11 +422,37 @@ function renderProgress() {
 }
 
 // ============================================================
+// DUE DATE WARNINGS
+// ============================================================
+function renderDueWarnings() {
+  const container = $('#due-warnings');
+  const warnings = [];
+
+  debts.forEach(d => {
+    const status = getDueStatus(d);
+    if (status) {
+      warnings.push({ name: d.name, ...status });
+    }
+  });
+
+  if (warnings.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = warnings.map(w => `
+    <div class="due-warning-item ${w.status}">
+      <span class="due-warning-icon">${w.status === 'overdue' ? '\u{1F6A8}' : '\u{26A0}\u{FE0F}'}</span>
+      <strong>${escapeHtml(w.name)}</strong> \u2014 ${w.label} (${w.detail})
+    </div>
+  `).join('');
+}
+
+// ============================================================
 // PAYOFF SIMULATION ENGINE
 // ============================================================
 function simulatePayoff(debtList, extraMonthly) {
   if (debtList.length === 0) return [];
-  // Deep copy debts for simulation
   let sim = debtList.map(d => ({
     name: d.name,
     balance: d.balance,
@@ -356,22 +465,19 @@ function simulatePayoff(debtList, extraMonthly) {
   const months = [];
   const now = new Date();
   let date = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const MAX_MONTHS = 360; // 30 years cap
+  const MAX_MONTHS = 360;
 
   for (let m = 0; m < MAX_MONTHS; m++) {
-    // Apply interest
     sim.forEach(d => {
       const monthlyRate = d.rate / 100 / 12;
       d.balance += d.balance * monthlyRate;
     });
 
-    // Pay minimums
     sim.forEach(d => {
       const pay = Math.min(d.minimum, d.balance);
       d.balance -= pay;
     });
 
-    // Extra payment applied per strategy
     let extra = extraMonthly;
     const sorted = [...sim].filter(d => d.balance > 0);
     if (strategy === 'avalanche') sorted.sort((a, b) => b.rate - a.rate);
@@ -384,7 +490,6 @@ function simulatePayoff(debtList, extraMonthly) {
       extra -= pay;
     }
 
-    // Round small balances
     sim.forEach(d => { if (d.balance < 0.01) d.balance = 0; });
 
     const totalRemaining = sim.reduce((s, d) => s + d.balance, 0);
@@ -437,7 +542,6 @@ function renderChart() {
   }];
 
   if (extraPayment > 0) {
-    // Pad extra data to match base length
     const extraData = extraMonths.map(m => m.total);
     while (extraData.length < baseData.length) extraData.push(0);
     datasets.push({
@@ -453,8 +557,6 @@ function renderChart() {
     });
   }
 
-  // Per-debt breakdown lines
-  const debtNames = debts.map(d => d.name);
   const perDebtColors = ['#f5a623', '#ef4565', '#00bcd4', '#e040fb', '#8bc34a', '#ff7043'];
   if (debts.length <= 6) {
     debts.forEach((d, i) => {
@@ -516,12 +618,6 @@ function renderChart() {
   ).join('');
 
   // Summary
-  const baseTotalInterest = baseMonths.reduce((s, m, i) => {
-    const prevTotal = i === 0 ? debts.reduce((a, d) => a + d.balance, 0) : baseMonths[i - 1].total;
-    const minPayments = debts.reduce((a, d) => a + Math.min(d.minimum, d.balance), 0);
-    return s;
-  }, 0);
-
   let summaryHtml = `
     <div class="chart-summary-item">
       <span class="cs-label">Payoff Date (Current)</span>
@@ -556,12 +652,12 @@ $('#extra-payment-slider').addEventListener('input', (e) => {
 });
 
 // ============================================================
-// DEBT LIST
+// DEBT LIST (with action buttons)
 // ============================================================
 function renderDebtList() {
   const debtListEl = $('#debt-list');
   if (debts.length === 0) {
-    debtListEl.innerHTML = '<p class="empty-state">No debts added yet. Use the form above to get started!</p>';
+    debtListEl.innerHTML = '<p class="empty-state">No debts added yet. Click + above to get started!</p>';
     return;
   }
 
@@ -577,6 +673,18 @@ function renderDebtList() {
     const badgeText = d.type === 'credit_card' ? 'Credit Card' : 'Loan';
     const iconClass = d.type === 'credit_card' ? 'type-credit_card' : 'type-loan';
     const amortTag = d.amort ? ' \u00B7 Amortized' : '';
+    const dueTag = d.dueDay ? ` \u00B7 Due ${ordSuffix(d.dueDay)}` : '';
+
+    // Due status badge
+    const dueStatus = getDueStatus(d);
+    const dueBadgeHtml = dueStatus
+      ? `<span class="due-badge ${dueStatus.status}">${dueStatus.label}</span>`
+      : '';
+
+    // Action buttons
+    const purchaseBtn = d.type === 'credit_card'
+      ? `<button class="btn-action btn-purchase" data-action="purchase" data-index="${i}">+ Purchase</button>`
+      : '';
 
     return `
     <div class="debt-item">
@@ -585,41 +693,139 @@ function renderDebtList() {
         <div class="debt-title">
           ${escapeHtml(d.name)}
           <span class="debt-type-badge ${badgeClass}">${badgeText}</span>
+          ${dueBadgeHtml}
         </div>
-        <div class="debt-meta">${d.rate}% APR \u00B7 ${fmt(d.minimum)}/mo min${amortTag}</div>
+        <div class="debt-meta">${d.rate}% APR \u00B7 ${fmt(d.minimum)}/mo min${amortTag}${dueTag}</div>
       </div>
       <div class="debt-balance">
         <div class="balance-amount">${fmt(d.balance)}</div>
         <div class="balance-original">of ${fmt(d.original)}</div>
       </div>
-      <button class="btn-delete" data-index="${i}" title="Remove debt">&times;</button>
+      <div class="debt-actions">
+        <button class="btn-action btn-pay" data-action="pay" data-index="${i}">Pay</button>
+        ${purchaseBtn}
+        <button class="btn-delete" data-action="delete" data-index="${i}" title="Remove debt">&times;</button>
+      </div>
     </div>`;
   }).join('');
+}
 
-  debtListEl.querySelectorAll('.btn-delete').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = parseInt(btn.dataset.index);
-      debts.splice(idx, 1);
-      recalcOriginalTotal();
-      save();
-      render();
-    });
+// Delegated click handler for debt list
+$('#debt-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const idx = parseInt(btn.dataset.index);
+
+  if (action === 'pay') {
+    openPaymentModal(idx);
+  } else if (action === 'purchase') {
+    openPurchaseModal(idx);
+  } else if (action === 'delete') {
+    if (!confirm(`Remove "${debts[idx].name}"? This cannot be undone.`)) return;
+    debts.splice(idx, 1);
+    recalcOriginalTotal();
+    save();
+    render();
+  }
+});
+
+// ============================================================
+// PAYMENT MODAL
+// ============================================================
+function openPaymentModal(idx) {
+  const debt = debts[idx];
+  if (!debt) return;
+  $('#payment-debt-idx').value = idx;
+  $('#payment-debt-name').textContent = `${debt.name} \u2014 Balance: ${fmt(debt.balance)}`;
+  $('#payment-amount').value = '';
+  $('#payment-date').value = todayISO();
+  openModal('payment-overlay');
+}
+
+$('#payment-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const idx = parseInt($('#payment-debt-idx').value);
+  const amount = parseFloat($('#payment-amount').value);
+  const date = $('#payment-date').value || todayISO();
+
+  if (isNaN(idx) || isNaN(amount) || amount <= 0) return;
+
+  const debt = debts[idx];
+  const actual = Math.min(amount, debt.balance);
+  debt.balance = Math.max(0, debt.balance - actual);
+  totalPaid += actual;
+
+  transactions.push({
+    type: 'payment',
+    debtName: debt.name,
+    amount: actual,
+    date: date
   });
-}
+
+  const justPaidOff = debt.balance <= 0;
+  if (justPaidOff) {
+    debts.splice(idx, 1);
+  }
+
+  save();
+  closeModal('payment-overlay');
+  render();
+  renderDataMeta();
+  showToast(`Payment of ${fmt(actual)} logged for ${debt.name}!`);
+
+  if (justPaidOff) {
+    launchConfetti();
+  }
+  const pct = originalTotal > 0 ? (totalPaid / originalTotal) * 100 : 0;
+  if (pct >= 100 && debts.length === 0) {
+    launchConfetti();
+    setTimeout(launchConfetti, 1500);
+  }
+});
 
 // ============================================================
-// PAYMENT / PURCHASE SELECTS
+// PURCHASE MODAL
 // ============================================================
-function renderPaymentSelect() {
-  $('#payment-debt').innerHTML = '<option value="">Select a debt</option>' +
-    debts.map((d, i) => `<option value="${i}">${escapeHtml(d.name)} (${fmt(d.balance)})</option>`).join('');
+function openPurchaseModal(idx) {
+  const debt = debts[idx];
+  if (!debt || debt.type !== 'credit_card') return;
+  $('#purchase-card-idx').value = idx;
+  $('#purchase-card-name').textContent = `${debt.name} \u2014 Balance: ${fmt(debt.balance)}`;
+  $('#purchase-desc').value = '';
+  $('#purchase-amount').value = '';
+  $('#purchase-date').value = todayISO();
+  openModal('purchase-overlay');
 }
 
-function renderPurchaseSelect() {
-  const ccDebts = debts.map((d, i) => ({ ...d, idx: i })).filter(d => d.type === 'credit_card');
-  $('#purchase-card').innerHTML = '<option value="">Select a credit card</option>' +
-    ccDebts.map(d => `<option value="${d.idx}">${escapeHtml(d.name)} (${fmt(d.balance)})</option>`).join('');
-}
+$('#purchase-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const idx = parseInt($('#purchase-card-idx').value);
+  const desc = $('#purchase-desc').value.trim();
+  const amount = parseFloat($('#purchase-amount').value);
+  const date = $('#purchase-date').value || todayISO();
+
+  if (isNaN(idx) || !desc || isNaN(amount) || amount <= 0) return;
+
+  const debt = debts[idx];
+  debt.balance += amount;
+  debt.original += amount;
+  originalTotal += amount;
+
+  transactions.push({
+    type: 'purchase',
+    debtName: debt.name,
+    description: desc,
+    amount,
+    date: date
+  });
+
+  save();
+  closeModal('purchase-overlay');
+  render();
+  renderDataMeta();
+  showToast(`Purchase of ${fmt(amount)} added to ${debt.name}.`);
+});
 
 // ============================================================
 // TRANSACTION HISTORY
@@ -627,7 +833,7 @@ function renderPurchaseSelect() {
 function renderTransactionHistory() {
   const historyEl = $('#transaction-history');
   if (transactions.length === 0) {
-    historyEl.innerHTML = '';
+    historyEl.innerHTML = '<p class="empty-state" style="padding:1rem 0;">No transactions yet.</p>';
     return;
   }
   const recent = transactions.slice(-15).reverse();
@@ -636,25 +842,14 @@ function renderTransactionHistory() {
     const amtClass = isPayment ? 'pe-payment' : 'pe-purchase';
     const prefix = isPayment ? '-' : '+';
     const desc = t.description ? ` \u00B7 ${escapeHtml(t.description)}` : '';
+    const dateStr = t.date ? `<span class="pe-date">${fmtDate(t.date)}</span>` : '';
     return `
     <div class="payment-entry">
-      <span class="pe-info">${escapeHtml(t.debtName)}${desc} \u00B7 ${t.date}</span>
+      <span class="pe-info">${escapeHtml(t.debtName)}${desc} ${dateStr}</span>
       <span class="pe-amount ${amtClass}">${prefix}${fmt(t.amount)}</span>
     </div>`;
   }).join('');
 }
-
-// ============================================================
-// TABS
-// ============================================================
-$$('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    $$('.tab-btn').forEach(b => b.classList.remove('active'));
-    $$('.tab-content').forEach(c => c.classList.remove('active'));
-    btn.classList.add('active');
-    $(`#tab-${btn.dataset.tab}`).classList.add('active');
-  });
-});
 
 // ============================================================
 // STRATEGY
@@ -697,8 +892,12 @@ $$('.strategy-btn').forEach(btn => {
 });
 
 // ============================================================
-// ADD DEBT FORM
+// ADD DEBT MODAL
 // ============================================================
+$('#btn-add-debt').addEventListener('click', () => {
+  openModal('add-debt-overlay');
+});
+
 const debtTypeSelect = $('#debt-type');
 const amortToggle = $('#amort-toggle');
 const amortCheckbox = $('#has-amortization');
@@ -735,13 +934,11 @@ function updateAmortPreview() {
   if (!principal || !term || !rate) { preview.innerHTML = ''; return; }
 
   const monthlyRate = rate / 100 / 12;
-  // Calculate EMI if not provided
   const calcEmi = emi || (principal * monthlyRate * Math.pow(1 + monthlyRate, term)) / (Math.pow(1 + monthlyRate, term) - 1);
   const remainingPayments = term - made;
   const totalCost = calcEmi * term;
   const totalInterest = totalCost - principal;
 
-  // Lender's payoff date
   const now = new Date();
   const payoffDate = new Date(now.getFullYear(), now.getMonth() + remainingPayments, 1);
 
@@ -762,10 +959,12 @@ $('#debt-form').addEventListener('submit', (e) => {
   const balance = parseFloat($('#debt-balance').value);
   const rate = parseFloat($('#debt-rate').value);
   const minimum = parseFloat($('#debt-minimum').value);
+  const dueDay = parseInt($('#debt-due-day').value) || null;
 
   if (!name || isNaN(balance) || isNaN(rate) || isNaN(minimum)) return;
 
   const debt = { name, balance, rate, minimum, original: balance, type };
+  if (dueDay && dueDay >= 1 && dueDay <= 31) debt.dueDay = dueDay;
 
   // Amortization data
   if (type === 'loan' && amortCheckbox.checked) {
@@ -773,11 +972,13 @@ $('#debt-form').addEventListener('submit', (e) => {
     const term = parseInt($('#amort-term').value);
     const emi = parseFloat($('#amort-emi').value);
     const made = parseInt($('#amort-payments-made').value) || 0;
+    const startDate = $('#amort-start-date').value || null;
 
     if (principal && term) {
       const monthlyRate = rate / 100 / 12;
       const calcEmi = emi || (principal * monthlyRate * Math.pow(1 + monthlyRate, term)) / (Math.pow(1 + monthlyRate, term) - 1);
       debt.amort = { principal, term, emi: calcEmi, paymentsMade: made };
+      if (startDate) debt.amort.startDate = startDate;
       debt.original = principal;
       debt.minimum = calcEmi;
     }
@@ -786,82 +987,14 @@ $('#debt-form').addEventListener('submit', (e) => {
   debts.push(debt);
   originalTotal += debt.original;
   save();
+  closeModal('add-debt-overlay');
   render();
+  renderDataMeta();
   $('#debt-form').reset();
   amortFields.style.display = 'none';
   amortCheckbox.checked = false;
   $('#amort-preview').innerHTML = '';
-});
-
-// ============================================================
-// LOG PAYMENT
-// ============================================================
-$('#payment-form').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const idx = parseInt($('#payment-debt').value);
-  const amount = parseFloat($('#payment-amount').value);
-
-  if (isNaN(idx) || isNaN(amount) || amount <= 0) return;
-
-  const debt = debts[idx];
-  const actual = Math.min(amount, debt.balance);
-  debt.balance = Math.max(0, debt.balance - actual);
-  totalPaid += actual;
-
-  transactions.push({
-    type: 'payment',
-    debtName: debt.name,
-    amount: actual,
-    date: new Date().toLocaleDateString('en-US')
-  });
-
-  const justPaidOff = debt.balance <= 0;
-  if (justPaidOff) {
-    debts.splice(idx, 1);
-  }
-
-  save();
-  render();
-  $('#payment-form').reset();
-
-  // Celebrations
-  if (justPaidOff) {
-    launchConfetti();
-  }
-  const pct = originalTotal > 0 ? (totalPaid / originalTotal) * 100 : 0;
-  if (pct >= 100 && debts.length === 0) {
-    launchConfetti();
-    setTimeout(launchConfetti, 1500);
-  }
-});
-
-// ============================================================
-// ADD PURCHASE (Credit Card)
-// ============================================================
-$('#purchase-form').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const idx = parseInt($('#purchase-card').value);
-  const desc = $('#purchase-desc').value.trim();
-  const amount = parseFloat($('#purchase-amount').value);
-
-  if (isNaN(idx) || !desc || isNaN(amount) || amount <= 0) return;
-
-  const debt = debts[idx];
-  debt.balance += amount;
-  debt.original += amount;
-  originalTotal += amount;
-
-  transactions.push({
-    type: 'purchase',
-    debtName: debt.name,
-    description: desc,
-    amount,
-    date: new Date().toLocaleDateString('en-US')
-  });
-
-  save();
-  render();
-  $('#purchase-form').reset();
+  showToast(`"${name}" added!`);
 });
 
 // ============================================================
@@ -898,10 +1031,17 @@ function renderAmortTable() {
     return;
   }
 
-  const { principal, term, emi, paymentsMade } = debt.amort;
+  const { principal, term, emi, paymentsMade, startDate } = debt.amort;
   const monthlyRate = debt.rate / 100 / 12;
   const rows = [];
   let balance = principal;
+
+  // Calculate dates if startDate exists
+  let rowDate = null;
+  if (startDate) {
+    const sd = new Date(startDate + 'T00:00:00');
+    rowDate = new Date(sd.getFullYear(), sd.getMonth() + 1, sd.getDate());
+  }
 
   for (let i = 1; i <= term; i++) {
     const interest = balance * monthlyRate;
@@ -910,8 +1050,15 @@ function renderAmortTable() {
     const isPast = i <= paymentsMade;
     const isCurrent = i === paymentsMade + 1;
 
+    let dateStr = '';
+    if (rowDate) {
+      dateStr = fmtDate(rowDate.toISOString().slice(0, 10));
+      rowDate = new Date(rowDate.getFullYear(), rowDate.getMonth() + 1, rowDate.getDate());
+    }
+
     rows.push({
       month: i,
+      dateStr,
       payment: emi,
       principal: principalPart,
       interest,
@@ -921,11 +1068,14 @@ function renderAmortTable() {
     });
   }
 
+  const hasDate = rows.some(r => r.dateStr);
+
   const html = `
     <table class="amort-table">
       <thead>
         <tr>
           <th>#</th>
+          ${hasDate ? '<th>Date</th>' : ''}
           <th>Payment</th>
           <th>Principal</th>
           <th>Interest</th>
@@ -936,6 +1086,7 @@ function renderAmortTable() {
         ${rows.map(r => `
           <tr class="${r.isPast ? 'past-row' : ''} ${r.isCurrent ? 'current-row' : ''}">
             <td>${r.month}</td>
+            ${hasDate ? `<td>${r.dateStr}</td>` : ''}
             <td>${fmt(r.payment)}</td>
             <td>${fmt(r.principal)}</td>
             <td>${fmt(r.interest)}</td>
@@ -996,30 +1147,37 @@ function renderDataMeta() {
     localStorage.getItem('debtzero_originalTotal') || '',
   ]).size;
 
-  const lastTx = transactions.length > 0 ? transactions[transactions.length - 1].date : 'N/A';
+  const lastTx = transactions.length > 0
+    ? fmtDate(transactions[transactions.length - 1].date) || transactions[transactions.length - 1].date
+    : 'N/A';
 
-  $('#data-meta').innerHTML = `
-    <div class="data-meta-item"><span class="dm-label">Debts</span><span class="dm-value">${debtCount}</span></div>
-    <div class="data-meta-item"><span class="dm-label">Transactions</span><span class="dm-value">${txCount}</span></div>
-    <div class="data-meta-item"><span class="dm-label">Last Activity</span><span class="dm-value">${lastTx}</span></div>
-    <div class="data-meta-item"><span class="dm-label">Storage Used</span><span class="dm-value">${(dataSize / 1024).toFixed(1)} KB</span></div>
-  `;
+  const metaEl = $('#data-meta');
+  if (metaEl) {
+    metaEl.innerHTML = `
+      <div class="data-meta-item"><span class="dm-label">Debts</span><span class="dm-value">${debtCount}</span></div>
+      <div class="data-meta-item"><span class="dm-label">Transactions</span><span class="dm-value">${txCount}</span></div>
+      <div class="data-meta-item"><span class="dm-label">Last Activity</span><span class="dm-value">${lastTx}</span></div>
+      <div class="data-meta-item"><span class="dm-label">Storage Used</span><span class="dm-value">${(dataSize / 1024).toFixed(1)} KB</span></div>
+    `;
+  }
 
   const statusText = $('#data-status-text');
-  const statusDot = $('#data-status .status-dot');
-  if (debtCount > 0 || txCount > 0) {
-    statusText.textContent = 'All data saved locally. Consider exporting a backup.';
-    statusDot.className = 'status-dot status-ok';
-  } else {
-    statusText.textContent = 'No data yet. Add debts to get started.';
-    statusDot.className = 'status-dot status-warn';
+  const statusDot = document.querySelector('#data-status .status-dot');
+  if (statusText && statusDot) {
+    if (debtCount > 0 || txCount > 0) {
+      statusText.textContent = 'All data saved locally. Consider exporting a backup.';
+      statusDot.className = 'status-dot status-ok';
+    } else {
+      statusText.textContent = 'No data yet. Add debts to get started.';
+      statusDot.className = 'status-dot status-warn';
+    }
   }
 }
 
 // Export
 $('#btn-export').addEventListener('click', () => {
   const data = {
-    version: 3,
+    version: 4,
     exportDate: new Date().toISOString(),
     debts,
     transactions,
@@ -1033,7 +1191,7 @@ $('#btn-export').addEventListener('click', () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `debtzero-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `debtzero-backup-${todayISO()}.json`;
   a.click();
   URL.revokeObjectURL(url);
 
@@ -1054,7 +1212,6 @@ $('#file-import').addEventListener('change', (e) => {
         throw new Error('Invalid backup file format.');
       }
 
-      // Confirm overwrite
       if (debts.length > 0 || transactions.length > 0) {
         if (!confirm('This will replace all current data with the backup. Continue?')) {
           return;
@@ -1066,7 +1223,6 @@ $('#file-import').addEventListener('change', (e) => {
       totalPaid = data.totalPaid || 0;
       originalTotal = data.originalTotal || 0;
 
-      // Restore settings if present in backup
       if (data.settings) {
         settings = { ...DEFAULT_SETTINGS, ...data.settings };
         localStorage.setItem('debtzero_settings', JSON.stringify(settings));
@@ -1111,22 +1267,15 @@ $('#btn-reset').addEventListener('click', () => {
 // ============================================================
 // SETTINGS MODAL
 // ============================================================
-const settingsOverlay = $('#settings-overlay');
-const settingsModal = $('#settings-modal');
-
 function openSettings() {
-  // Populate current values
   $('#setting-currency').value = settings.currency;
   $('#setting-show-symbol').checked = settings.showSymbol;
   document.querySelectorAll('input[name="number-format"]').forEach(r => {
     r.checked = r.value === settings.numberFormat;
   });
   updateSettingsPreview();
-  settingsOverlay.classList.add('open');
-}
-
-function closeSettings() {
-  settingsOverlay.classList.remove('open');
+  renderDataMeta();
+  openModal('settings-overlay');
 }
 
 function updateSettingsPreview() {
@@ -1134,7 +1283,6 @@ function updateSettingsPreview() {
   const showSym = $('#setting-show-symbol').checked;
   const numFmt = document.querySelector('input[name="number-format"]:checked').value;
 
-  // Temporarily apply for preview
   const prev = { ...settings };
   settings.currency = curr;
   settings.showSymbol = showSym;
@@ -1142,17 +1290,12 @@ function updateSettingsPreview() {
 
   $('#settings-preview').textContent = fmt(5020000.75);
 
-  // Restore
   settings.currency = prev.currency;
   settings.showSymbol = prev.showSymbol;
   settings.numberFormat = prev.numberFormat;
 }
 
 $('#settings-toggle').addEventListener('click', openSettings);
-$('#settings-close').addEventListener('click', closeSettings);
-settingsOverlay.addEventListener('click', (e) => {
-  if (e.target === settingsOverlay) closeSettings();
-});
 
 // Live preview on any settings change
 $('#setting-currency').addEventListener('change', updateSettingsPreview);
@@ -1167,7 +1310,7 @@ $('#settings-save').addEventListener('click', () => {
   settings.numberFormat = document.querySelector('input[name="number-format"]:checked').value;
 
   localStorage.setItem('debtzero_settings', JSON.stringify(settings));
-  closeSettings();
+  closeModal('settings-overlay');
   render();
   renderDataMeta();
   showToast('Settings saved! Currency updated to ' + settings.currency + '.');
