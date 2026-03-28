@@ -28,6 +28,7 @@
         <span class="streak-fire">&#128293;</span>
         <span class="streak-count" id="streak-count">0</span>
       </div>
+      <button id="settings-toggle" aria-label="Settings" title="Settings">&#9881;</button>
       <button id="theme-toggle" aria-label="Toggle theme">&#127769;</button>
     </div>
   </header>
@@ -260,6 +261,96 @@
   <footer>
     <p>DebtZero &mdash; All data stored locally in your browser. You've got this!</p>
   </footer>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settings-overlay">
+    <div class="modal" id="settings-modal">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="modal-close" id="settings-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-group">
+          <label class="settings-label">Currency</label>
+          <select id="setting-currency">
+            <option value="USD">USD — US Dollar ($)</option>
+            <option value="EUR">EUR — Euro (&euro;)</option>
+            <option value="GBP">GBP — British Pound (&pound;)</option>
+            <option value="INR">INR — Indian Rupee (&#8377;)</option>
+            <option value="JPY">JPY — Japanese Yen (&yen;)</option>
+            <option value="CAD">CAD — Canadian Dollar (C$)</option>
+            <option value="AUD">AUD — Australian Dollar (A$)</option>
+            <option value="CHF">CHF — Swiss Franc (CHF)</option>
+            <option value="CNY">CNY — Chinese Yuan (&yen;)</option>
+            <option value="BRL">BRL — Brazilian Real (R$)</option>
+            <option value="MXN">MXN — Mexican Peso (MX$)</option>
+            <option value="SGD">SGD — Singapore Dollar (S$)</option>
+            <option value="KRW">KRW — South Korean Won (&#8361;)</option>
+            <option value="ZAR">ZAR — South African Rand (R)</option>
+            <option value="AED">AED — UAE Dirham (AED)</option>
+            <option value="SAR">SAR — Saudi Riyal (SAR)</option>
+          </select>
+        </div>
+
+        <div class="settings-group">
+          <label class="settings-label">Show Currency Symbol</label>
+          <div class="settings-row">
+            <label class="toggle-label">
+              <input type="checkbox" id="setting-show-symbol" checked>
+              <span class="toggle-slider"></span>
+              Display symbol (e.g. $, &euro;, &#8377;) before amounts
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <label class="settings-label">Number Format</label>
+          <div class="settings-radio-group">
+            <label class="settings-radio">
+              <input type="radio" name="number-format" value="international" checked>
+              <span class="radio-custom"></span>
+              <span class="radio-text">
+                <strong>International</strong>
+                <span class="radio-example">1,000,000.00</span>
+              </span>
+            </label>
+            <label class="settings-radio">
+              <input type="radio" name="number-format" value="indian">
+              <span class="radio-custom"></span>
+              <span class="radio-text">
+                <strong>Indian (Lakhs/Crores)</strong>
+                <span class="radio-example">10,00,000.00</span>
+              </span>
+            </label>
+            <label class="settings-radio">
+              <input type="radio" name="number-format" value="european">
+              <span class="radio-custom"></span>
+              <span class="radio-text">
+                <strong>European</strong>
+                <span class="radio-example">1.000.000,00</span>
+              </span>
+            </label>
+            <label class="settings-radio">
+              <input type="radio" name="number-format" value="plain">
+              <span class="radio-custom"></span>
+              <span class="radio-text">
+                <strong>Plain (no separators)</strong>
+                <span class="radio-example">1000000.00</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <label class="settings-label">Preview</label>
+          <div class="settings-preview" id="settings-preview">$50,200.00</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" id="settings-save">Save Settings</button>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

@@ -10,6 +10,14 @@ let originalTotal = parseFloat(localStorage.getItem('debtzero_originalTotal') ||
 let strategy = 'avalanche';
 let payoffChart = null;
 
+// === Currency Settings ===
+const DEFAULT_SETTINGS = {
+  currency: 'USD',
+  showSymbol: true,
+  numberFormat: 'international', // international | indian | european | plain
+};
+let settings = JSON.parse(localStorage.getItem('debtzero_settings') || 'null') || { ...DEFAULT_SETTINGS };
+
 // Migrate old payments to transactions
 (function migrateOldPayments() {
   const old = localStorage.getItem('debtzero_payments');
@@ -40,8 +48,56 @@ $('#theme-toggle').addEventListener('click', () => {
 });
 
 // === Formatting ===
+function getLocaleForFormat(format) {
+  switch (format) {
+    case 'indian': return 'en-IN';
+    case 'european': return 'de-DE';
+    case 'plain': return 'en-US';
+    default: return 'en-US';
+  }
+}
+
 function fmt(n) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+  const locale = getLocaleForFormat(settings.numberFormat);
+  const curr = settings.currency;
+  const showSym = settings.showSymbol;
+
+  if (settings.numberFormat === 'plain') {
+    // No thousand separators, just decimal
+    const fixed = Math.abs(n).toFixed(2);
+    const sign = n < 0 ? '-' : '';
+    if (showSym) {
+      try {
+        const sym = getCurrencySymbol(curr);
+        return sign + sym + fixed;
+      } catch { return sign + curr + ' ' + fixed; }
+    }
+    return sign + fixed;
+  }
+
+  if (showSym) {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: curr,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n);
+  } else {
+    return new Intl.NumberFormat(locale, {
+      style: 'decimal',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n);
+  }
+}
+
+function getCurrencySymbol(currencyCode) {
+  return (0).toLocaleString('en-US', {
+    style: 'currency',
+    currency: currencyCode,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).replace(/\d/g, '').trim();
 }
 
 function fmtMonth(date) {
@@ -963,12 +1019,13 @@ function renderDataMeta() {
 // Export
 $('#btn-export').addEventListener('click', () => {
   const data = {
-    version: 2,
+    version: 3,
     exportDate: new Date().toISOString(),
     debts,
     transactions,
     totalPaid,
     originalTotal,
+    settings,
   };
 
   const json = JSON.stringify(data, null, 2);
@@ -1009,6 +1066,12 @@ $('#file-import').addEventListener('change', (e) => {
       totalPaid = data.totalPaid || 0;
       originalTotal = data.originalTotal || 0;
 
+      // Restore settings if present in backup
+      if (data.settings) {
+        settings = { ...DEFAULT_SETTINGS, ...data.settings };
+        localStorage.setItem('debtzero_settings', JSON.stringify(settings));
+      }
+
       save();
       render();
       renderDataMeta();
@@ -1031,15 +1094,83 @@ $('#btn-reset').addEventListener('click', () => {
   totalPaid = 0;
   originalTotal = 0;
 
+  settings = { ...DEFAULT_SETTINGS };
+
   localStorage.removeItem('debtzero_debts');
   localStorage.removeItem('debtzero_transactions');
   localStorage.removeItem('debtzero_totalPaid');
   localStorage.removeItem('debtzero_originalTotal');
+  localStorage.removeItem('debtzero_settings');
 
   save();
   render();
   renderDataMeta();
   showToast('All data has been reset.');
+});
+
+// ============================================================
+// SETTINGS MODAL
+// ============================================================
+const settingsOverlay = $('#settings-overlay');
+const settingsModal = $('#settings-modal');
+
+function openSettings() {
+  // Populate current values
+  $('#setting-currency').value = settings.currency;
+  $('#setting-show-symbol').checked = settings.showSymbol;
+  document.querySelectorAll('input[name="number-format"]').forEach(r => {
+    r.checked = r.value === settings.numberFormat;
+  });
+  updateSettingsPreview();
+  settingsOverlay.classList.add('open');
+}
+
+function closeSettings() {
+  settingsOverlay.classList.remove('open');
+}
+
+function updateSettingsPreview() {
+  const curr = $('#setting-currency').value;
+  const showSym = $('#setting-show-symbol').checked;
+  const numFmt = document.querySelector('input[name="number-format"]:checked').value;
+
+  // Temporarily apply for preview
+  const prev = { ...settings };
+  settings.currency = curr;
+  settings.showSymbol = showSym;
+  settings.numberFormat = numFmt;
+
+  $('#settings-preview').textContent = fmt(5020000.75);
+
+  // Restore
+  settings.currency = prev.currency;
+  settings.showSymbol = prev.showSymbol;
+  settings.numberFormat = prev.numberFormat;
+}
+
+$('#settings-toggle').addEventListener('click', openSettings);
+$('#settings-close').addEventListener('click', closeSettings);
+settingsOverlay.addEventListener('click', (e) => {
+  if (e.target === settingsOverlay) closeSettings();
+});
+
+// Live preview on any settings change
+$('#setting-currency').addEventListener('change', updateSettingsPreview);
+$('#setting-show-symbol').addEventListener('change', updateSettingsPreview);
+$$('input[name="number-format"]').forEach(r => {
+  r.addEventListener('change', updateSettingsPreview);
+});
+
+$('#settings-save').addEventListener('click', () => {
+  settings.currency = $('#setting-currency').value;
+  settings.showSymbol = $('#setting-show-symbol').checked;
+  settings.numberFormat = document.querySelector('input[name="number-format"]:checked').value;
+
+  localStorage.setItem('debtzero_settings', JSON.stringify(settings));
+  closeSettings();
+  render();
+  renderDataMeta();
+  showToast('Settings saved! Currency updated to ' + settings.currency + '.');
 });
 
 // ============================================================
