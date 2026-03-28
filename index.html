@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DebtZero — Debt Payoff Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1>Debt<span class="accent">Zero</span></h1>
+      <p class="tagline">Track. Strategize. Eliminate.</p>
+    </div>
+    <button id="theme-toggle" aria-label="Toggle theme">🌙</button>
+  </header>
+
+  <main>
+    <!-- Dashboard Cards -->
+    <section class="dashboard">
+      <div class="card summary-card">
+        <span class="card-label">Total Debt</span>
+        <span class="card-value" id="total-debt">$0.00</span>
+      </div>
+      <div class="card summary-card">
+        <span class="card-label">Monthly Payment</span>
+        <span class="card-value" id="total-monthly">$0.00</span>
+      </div>
+      <div class="card summary-card">
+        <span class="card-label">Debts Remaining</span>
+        <span class="card-value" id="debt-count">0</span>
+      </div>
+      <div class="card summary-card">
+        <span class="card-label">Avg Interest Rate</span>
+        <span class="card-value" id="avg-rate">0.0%</span>
+      </div>
+    </section>
+
+    <!-- Progress Bar -->
+    <section class="card progress-section">
+      <div class="progress-header">
+        <h2>Payoff Progress</h2>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <p class="progress-sub" id="progress-sub">Add debts and log payments to track your progress.</p>
+    </section>
+
+    <!-- Strategy Comparison -->
+    <section class="card strategy-section">
+      <h2>Payoff Strategy</h2>
+      <div class="strategy-toggle">
+        <button class="strategy-btn active" data-strategy="avalanche">Avalanche (Highest Rate)</button>
+        <button class="strategy-btn" data-strategy="snowball">Snowball (Lowest Balance)</button>
+      </div>
+      <div id="strategy-info" class="strategy-info"></div>
+      <ol id="payoff-order" class="payoff-order"></ol>
+    </section>
+
+    <!-- Add Debt Form -->
+    <section class="card form-section">
+      <h2>Add a Debt</h2>
+      <form id="debt-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="debt-name">Name</label>
+            <input type="text" id="debt-name" placeholder="e.g. Visa Card" required>
+          </div>
+          <div class="form-group">
+            <label for="debt-balance">Balance ($)</label>
+            <input type="number" id="debt-balance" placeholder="5000" min="0" step="0.01" required>
+          </div>
+          <div class="form-group">
+            <label for="debt-rate">Interest Rate (%)</label>
+            <input type="number" id="debt-rate" placeholder="19.99" min="0" step="0.01" required>
+          </div>
+          <div class="form-group">
+            <label for="debt-minimum">Min. Payment ($)</label>
+            <input type="number" id="debt-minimum" placeholder="150" min="0" step="0.01" required>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary">Add Debt</button>
+      </form>
+    </section>
+
+    <!-- Debt List -->
+    <section class="card">
+      <h2>Your Debts</h2>
+      <div id="debt-list" class="debt-list">
+        <p class="empty-state" id="empty-state">No debts added yet. Use the form above to get started!</p>
+      </div>
+    </section>
+
+    <!-- Payment Log -->
+    <section class="card">
+      <h2>Log a Payment</h2>
+      <form id="payment-form" class="payment-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="payment-debt">Debt</label>
+            <select id="payment-debt" required>
+              <option value="">Select a debt</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="payment-amount">Amount ($)</label>
+            <input type="number" id="payment-amount" placeholder="200" min="0.01" step="0.01" required>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary">Log Payment</button>
+      </form>
+      <div id="payment-history" class="payment-history"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>DebtZero &mdash; All data stored locally in your browser.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
