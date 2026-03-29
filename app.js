@@ -175,9 +175,7 @@ function save() {
 function render() {
   renderDashboard();
   renderDebtList();
-  renderTransactionHistory();
   renderStrategy();
-  renderProgress();
   renderChart();
   renderMilestones();
   renderMotivation();
@@ -402,23 +400,6 @@ function renderDashboard() {
   } else {
     $('#debt-free-date').textContent = debts.length > 0 ? 'N/A' : '--';
   }
-}
-
-// ============================================================
-// PROGRESS
-// ============================================================
-function renderProgress() {
-  if (originalTotal <= 0) {
-    $('#progress-fill').style.width = '0%';
-    $('#progress-pct').textContent = '0%';
-    $('#progress-sub').textContent = 'Add debts and log payments to track your progress.';
-    return;
-  }
-  const pct = Math.min(100, (totalPaid / originalTotal) * 100);
-  $('#progress-fill').style.width = pct.toFixed(1) + '%';
-  $('#progress-pct').textContent = pct.toFixed(1) + '%';
-  const remaining = debts.reduce((s, d) => s + d.balance, 0);
-  $('#progress-sub').textContent = `${fmt(totalPaid)} paid of ${fmt(originalTotal)} \u2014 ${fmt(remaining)} remaining`;
 }
 
 // ============================================================
@@ -828,16 +809,73 @@ $('#purchase-form').addEventListener('submit', (e) => {
 });
 
 // ============================================================
-// TRANSACTION HISTORY
+// TRANSACTION HISTORY MODAL
 // ============================================================
-function renderTransactionHistory() {
-  const historyEl = $('#transaction-history');
-  if (transactions.length === 0) {
-    historyEl.innerHTML = '<p class="empty-state" style="padding:1rem 0;">No transactions yet.</p>';
+$('#history-toggle').addEventListener('click', () => {
+  populateHistoryFilters();
+  renderHistoryList();
+  openModal('history-overlay');
+});
+
+function populateHistoryFilters() {
+  const debtSelect = $('#history-filter-debt');
+  const names = [...new Set(transactions.map(t => t.debtName))];
+  const currentVal = debtSelect.value;
+  debtSelect.innerHTML = '<option value="all">All Accounts</option>' +
+    names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+  if (currentVal && names.includes(currentVal)) debtSelect.value = currentVal;
+}
+
+function getFilteredTransactions() {
+  const debtFilter = $('#history-filter-debt').value;
+  const typeFilter = $('#history-filter-type').value;
+  const sortOrder = $('#history-sort').value;
+  const dateFrom = $('#history-date-from').value;
+  const dateTo = $('#history-date-to').value;
+
+  let filtered = [...transactions];
+
+  if (debtFilter !== 'all') {
+    filtered = filtered.filter(t => t.debtName === debtFilter);
+  }
+  if (typeFilter !== 'all') {
+    filtered = filtered.filter(t => t.type === typeFilter);
+  }
+  if (dateFrom) {
+    filtered = filtered.filter(t => t.date && t.date >= dateFrom);
+  }
+  if (dateTo) {
+    filtered = filtered.filter(t => t.date && t.date <= dateTo);
+  }
+
+  filtered.sort((a, b) => {
+    const da = a.date || '';
+    const db = b.date || '';
+    return sortOrder === 'newest' ? db.localeCompare(da) : da.localeCompare(db);
+  });
+
+  return filtered;
+}
+
+function renderHistoryList() {
+  const listEl = $('#history-list');
+  const filtered = getFilteredTransactions();
+
+  // Summary
+  const totalPayments = filtered.filter(t => t.type === 'payment').reduce((s, t) => s + t.amount, 0);
+  const totalPurchases = filtered.filter(t => t.type === 'purchase').reduce((s, t) => s + t.amount, 0);
+  $('#history-summary').innerHTML = `
+    <span class="hs-item"><span class="hs-count">${filtered.length}</span> transaction${filtered.length !== 1 ? 's' : ''}</span>
+    ${totalPayments > 0 ? `<span class="hs-item">Payments: <span class="hs-payments">${fmt(totalPayments)}</span></span>` : ''}
+    ${totalPurchases > 0 ? `<span class="hs-item">Purchases: <span class="hs-purchases">${fmt(totalPurchases)}</span></span>` : ''}
+  `;
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = '<p class="empty-state" style="padding:1rem 0;">No transactions match your filters.</p>';
     return;
   }
-  const recent = transactions.slice(-15).reverse();
-  historyEl.innerHTML = recent.map(t => {
+
+  listEl.innerHTML = filtered.map(t => {
     const isPayment = t.type === 'payment';
     const amtClass = isPayment ? 'pe-payment' : 'pe-purchase';
     const prefix = isPayment ? '-' : '+';
@@ -850,6 +888,20 @@ function renderTransactionHistory() {
     </div>`;
   }).join('');
 }
+
+// Filter/sort change listeners
+['history-filter-debt', 'history-filter-type', 'history-sort', 'history-date-from', 'history-date-to'].forEach(id => {
+  $(`#${id}`).addEventListener('change', renderHistoryList);
+});
+
+$('#history-clear-filters').addEventListener('click', () => {
+  $('#history-filter-debt').value = 'all';
+  $('#history-filter-type').value = 'all';
+  $('#history-sort').value = 'newest';
+  $('#history-date-from').value = '';
+  $('#history-date-to').value = '';
+  renderHistoryList();
+});
 
 // ============================================================
 // STRATEGY

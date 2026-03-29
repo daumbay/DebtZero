@@ -28,6 +28,7 @@
         <span class="streak-fire">&#128293;</span>
         <span class="streak-count" id="streak-count">0</span>
       </div>
+      <button id="history-toggle" aria-label="Transaction History" title="Transaction History">&#128196;</button>
       <button id="settings-toggle" aria-label="Settings" title="Settings">&#9881;</button>
       <button id="theme-toggle" aria-label="Toggle theme">&#127769;</button>
     </div>
@@ -60,18 +61,6 @@
         <span class="card-label">Est. Debt-Free Date</span>
         <span class="card-value card-value-sm" id="debt-free-date">--</span>
       </div>
-    </section>
-
-    <!-- Progress Bar -->
-    <section class="card progress-section">
-      <div class="progress-header">
-        <h2>Payoff Progress</h2>
-        <span id="progress-pct">0%</span>
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" id="progress-fill"></div>
-      </div>
-      <p class="progress-sub" id="progress-sub">Add debts and log payments to track your progress.</p>
     </section>
 
     <!-- Payoff Timeline Chart -->
@@ -110,12 +99,6 @@
       <div id="debt-list" class="debt-list">
         <p class="empty-state">No debts added yet. Click + above to get started!</p>
       </div>
-    </section>
-
-    <!-- Transaction History -->
-    <section class="card">
-      <h2>Recent Transactions</h2>
-      <div id="transaction-history" class="payment-history"></div>
     </section>
 
     <!-- Amortization Schedule Viewer -->
@@ -268,6 +251,56 @@
           </div>
           <button type="submit" class="btn-primary btn-danger-style" style="width:100%;">Add Purchase</button>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transaction History Modal -->
+  <div class="modal-overlay" id="history-overlay">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2>Transaction History</h2>
+        <button class="modal-close" data-close="history-overlay">&times;</button>
+      </div>
+      <div class="modal-body" style="gap:1rem;">
+        <div class="history-filters">
+          <div class="filter-row">
+            <div class="form-group filter-group">
+              <label for="history-filter-debt">Account</label>
+              <select id="history-filter-debt">
+                <option value="all">All Accounts</option>
+              </select>
+            </div>
+            <div class="form-group filter-group">
+              <label for="history-filter-type">Type</label>
+              <select id="history-filter-type">
+                <option value="all">All</option>
+                <option value="payment">Payments</option>
+                <option value="purchase">Purchases</option>
+              </select>
+            </div>
+            <div class="form-group filter-group">
+              <label for="history-sort">Sort</label>
+              <select id="history-sort">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+              </select>
+            </div>
+          </div>
+          <div class="filter-row">
+            <div class="form-group filter-group">
+              <label for="history-date-from">From</label>
+              <input type="date" id="history-date-from">
+            </div>
+            <div class="form-group filter-group">
+              <label for="history-date-to">To</label>
+              <input type="date" id="history-date-to">
+            </div>
+            <button class="btn-filter-clear" id="history-clear-filters" title="Clear all filters">Clear</button>
+          </div>
+        </div>
+        <div class="history-summary" id="history-summary"></div>
+        <div id="history-list" class="payment-history"></div>
       </div>
     </div>
   </div>
