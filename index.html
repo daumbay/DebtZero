@@ -35,60 +35,62 @@
   </header>
 
   <main>
-    <!-- Due Date Warnings -->
-    <div class="due-warnings" id="due-warnings"></div>
-
-    <!-- Milestones -->
-    <section class="milestones" id="milestones-section" style="display:none;">
-      <div class="milestone-track" id="milestone-track"></div>
-    </section>
-
-    <!-- Dashboard Cards -->
-    <section class="dashboard">
-      <div class="card summary-card">
-        <span class="card-label">Total Debt</span>
-        <span class="card-value" id="total-debt">$0.00</span>
-      </div>
-      <div class="card summary-card">
-        <span class="card-label">Monthly Payment</span>
-        <span class="card-value" id="total-monthly">$0.00</span>
-      </div>
-      <div class="card summary-card">
-        <span class="card-label">Debts Remaining</span>
-        <span class="card-value" id="debt-count">0</span>
-      </div>
-      <div class="card summary-card">
-        <span class="card-label">Est. Debt-Free Date</span>
-        <span class="card-value card-value-sm" id="debt-free-date">--</span>
-      </div>
-    </section>
-
-    <!-- Payoff Timeline Chart -->
-    <section class="card chart-section">
-      <h2>Payoff Timeline</h2>
-      <div class="chart-controls">
-        <div class="extra-payment-control">
-          <label for="extra-payment-slider">Extra Monthly Payment: <strong id="extra-payment-display">$0</strong></label>
-          <input type="range" id="extra-payment-slider" min="0" max="2000" step="25" value="0">
+    <!-- Hero Row: Chart (left) + Sidebar (right) -->
+    <div class="hero-row">
+      <!-- Payoff Timeline Chart -->
+      <section class="card chart-section hero-chart">
+        <h2>Payoff Timeline</h2>
+        <div class="chart-controls">
+          <div class="extra-payment-control">
+            <label for="extra-payment-slider">Extra Monthly Payment: <strong id="extra-payment-display">$0</strong></label>
+            <input type="range" id="extra-payment-slider" min="0" max="2000" step="25" value="0">
+          </div>
+          <div class="chart-legend" id="chart-legend"></div>
         </div>
-        <div class="chart-legend" id="chart-legend"></div>
-      </div>
-      <div class="chart-container">
-        <canvas id="payoff-chart"></canvas>
-      </div>
-      <div class="chart-summary" id="chart-summary"></div>
-    </section>
+        <div class="chart-container">
+          <canvas id="payoff-chart"></canvas>
+        </div>
+        <div class="chart-summary" id="chart-summary"></div>
+      </section>
 
-    <!-- Strategy Comparison -->
-    <section class="card strategy-section">
-      <h2>Payoff Strategy</h2>
-      <div class="strategy-toggle">
-        <button class="strategy-btn active" data-strategy="avalanche">Avalanche (Highest Rate)</button>
-        <button class="strategy-btn" data-strategy="snowball">Snowball (Lowest Balance)</button>
+      <!-- Sidebar: Dashboard Cards + Strategy -->
+      <div class="hero-sidebar">
+        <div class="card summary-card">
+          <span class="card-label">Total Debt</span>
+          <span class="card-value" id="total-debt">$0.00</span>
+        </div>
+        <div class="card summary-card">
+          <span class="card-label">Monthly Payment</span>
+          <span class="card-value" id="total-monthly">$0.00</span>
+        </div>
+        <div class="card summary-card">
+          <span class="card-label">Debts Remaining</span>
+          <span class="card-value" id="debt-count">0</span>
+        </div>
+        <div class="card summary-card">
+          <span class="card-label">Est. Debt-Free Date</span>
+          <span class="card-value card-value-sm" id="debt-free-date">--</span>
+        </div>
+
+        <!-- Due Date Warnings (compact) -->
+        <div class="due-warnings" id="due-warnings"></div>
+
+        <!-- Milestones -->
+        <section class="milestones" id="milestones-section" style="display:none;">
+          <div class="milestone-track" id="milestone-track"></div>
+        </section>
+
+        <!-- Strategy (compact) -->
+        <div class="card strategy-card">
+          <div class="strategy-toggle">
+            <button class="strategy-btn active" data-strategy="avalanche">Avalanche</button>
+            <button class="strategy-btn" data-strategy="snowball">Snowball</button>
+          </div>
+          <div id="strategy-info" class="strategy-info"></div>
+          <ol id="payoff-order" class="payoff-order"></ol>
+        </div>
       </div>
-      <div id="strategy-info" class="strategy-info"></div>
-      <ol id="payoff-order" class="payoff-order"></ol>
-    </section>
+    </div>
 
     <!-- Debt List -->
     <section class="card">
