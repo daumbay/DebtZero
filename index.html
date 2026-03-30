@@ -103,15 +103,6 @@
       </div>
     </section>
 
-    <!-- Amortization Schedule Viewer -->
-    <section class="card" id="amort-viewer-section" style="display:none;">
-      <h2>Amortization Schedule</h2>
-      <div class="form-group" style="max-width:300px; margin-bottom:1rem;">
-        <label for="amort-viewer-select">Select Loan</label>
-        <select id="amort-viewer-select"></select>
-      </div>
-      <div class="amort-table-wrap" id="amort-table-wrap"></div>
-    </section>
   </main>
 
   <footer>
@@ -168,29 +159,56 @@
             </label>
           </div>
           <div class="amort-fields" id="amort-fields" style="display:none;">
-            <div class="form-grid">
-              <div class="form-group">
-                <label for="amort-principal">Original Principal ($)</label>
-                <input type="number" id="amort-principal" placeholder="25000" min="0" step="0.01">
-              </div>
-              <div class="form-group">
-                <label for="amort-term">Loan Term (months)</label>
-                <input type="number" id="amort-term" placeholder="60" min="1" step="1">
-              </div>
-              <div class="form-group">
-                <label for="amort-emi">EMI / Fixed Payment ($)</label>
-                <input type="number" id="amort-emi" placeholder="483.15" min="0" step="0.01">
-              </div>
-              <div class="form-group">
-                <label for="amort-payments-made">Payments Already Made</label>
-                <input type="number" id="amort-payments-made" placeholder="12" min="0" step="1">
-              </div>
-              <div class="form-group">
-                <label for="amort-start-date">Loan Start Date</label>
-                <input type="date" id="amort-start-date">
-              </div>
+            <!-- Source toggle: Calculator or CSV -->
+            <div class="amort-source-toggle">
+              <button type="button" class="amort-src-btn active" data-source="calculator">Calculator</button>
+              <button type="button" class="amort-src-btn" data-source="csv">Import CSV</button>
             </div>
-            <div class="amort-preview" id="amort-preview"></div>
+
+            <!-- Calculator panel -->
+            <div class="amort-panel" id="amort-calc-panel">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="amort-principal">Original Principal ($)</label>
+                  <input type="number" id="amort-principal" placeholder="25000" min="0" step="0.01">
+                </div>
+                <div class="form-group">
+                  <label for="amort-term">Loan Term (months)</label>
+                  <input type="number" id="amort-term" placeholder="60" min="1" step="1">
+                </div>
+                <div class="form-group">
+                  <label for="amort-emi">EMI / Fixed Payment ($)</label>
+                  <input type="number" id="amort-emi" placeholder="483.15" min="0" step="0.01">
+                </div>
+                <div class="form-group">
+                  <label for="amort-payments-made">Payments Already Made</label>
+                  <input type="number" id="amort-payments-made" placeholder="12" min="0" step="1">
+                </div>
+                <div class="form-group">
+                  <label for="amort-start-date">Loan Start Date</label>
+                  <input type="date" id="amort-start-date">
+                </div>
+              </div>
+              <div class="amort-preview" id="amort-preview"></div>
+            </div>
+
+            <!-- CSV Import panel -->
+            <div class="amort-panel" id="amort-csv-panel" style="display:none;">
+              <p class="csv-info">Upload a CSV file with your amortization schedule. The CSV must have columns: <strong>Date, Outstanding Balance, EMI, Principal Component, Interest Component</strong>.</p>
+              <div class="csv-actions">
+                <button type="button" class="btn-data btn-export" id="btn-csv-template">
+                  <span class="btn-data-icon">&#11015;</span> Download Template
+                </button>
+                <label class="btn-data btn-import">
+                  <span class="btn-data-icon">&#11014;</span> Choose CSV
+                  <input type="file" id="csv-file-input" accept=".csv" style="display:none;">
+                </label>
+              </div>
+              <div class="csv-status" id="csv-status"></div>
+            </div>
+
+            <!-- Preview Schedule button -->
+            <button type="button" class="btn-primary" id="btn-preview-schedule" style="width:100%; margin-top:0.75rem;">Preview Schedule</button>
           </div>
 
           <button type="submit" class="btn-primary" style="width:100%;">Add Debt</button>
@@ -419,6 +437,46 @@
       </div>
       <div class="modal-footer">
         <button class="btn-primary" id="settings-save">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Amortization Schedule Preview Modal (before confirming) -->
+  <div class="modal-overlay" id="amort-preview-overlay">
+    <div class="modal modal-xl">
+      <div class="modal-header">
+        <h2>Amortization Schedule Preview</h2>
+        <button class="modal-close" data-close="amort-preview-overlay">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="amort-modal-info" id="amort-preview-info"></p>
+        <div class="amort-table-wrap" id="amort-preview-table"></div>
+      </div>
+      <div class="modal-footer" style="gap:0.5rem;">
+        <button class="btn-primary" id="amort-preview-export" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border);">Export CSV</button>
+        <button class="btn-primary" id="amort-preview-confirm">Confirm &amp; Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Amortization Schedule Viewer Modal (for existing debts) -->
+  <div class="modal-overlay" id="amort-viewer-overlay">
+    <div class="modal modal-xl">
+      <div class="modal-header">
+        <h2>Amortization Schedule</h2>
+        <button class="modal-close" data-close="amort-viewer-overlay">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="amort-modal-info" id="amort-viewer-info"></p>
+        <div class="amort-table-wrap" id="amort-viewer-table"></div>
+      </div>
+      <div class="modal-footer" style="gap:0.5rem;">
+        <button class="btn-primary" id="amort-viewer-export" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border);">Export CSV</button>
+        <label class="btn-primary" id="amort-viewer-import" style="cursor:pointer;">
+          Import CSV
+          <input type="file" id="amort-viewer-csv-input" accept=".csv" style="display:none;">
+        </label>
+        <button class="btn-primary" data-close="amort-viewer-overlay">Close</button>
       </div>
     </div>
   </div>

@@ -666,6 +666,78 @@ main {
 .amort-preview .ac-label { font-size: 0.72rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.3px; }
 .amort-preview .ac-value { font-weight: 700; color: var(--text); font-size: 0.95rem; }
 
+/* Amort source toggle (Calculator / CSV tabs) */
+.amort-source-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.amort-src-btn {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.amort-src-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.amort-src-btn:hover:not(.active) {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* CSV import panel */
+.csv-info {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+
+.csv-info strong { color: var(--text); }
+
+.csv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.csv-status {
+  font-size: 0.85rem;
+  padding: 0.5rem 0;
+}
+
+.csv-status.csv-ok { color: var(--success); font-weight: 600; }
+.csv-status.csv-err { color: var(--danger); font-weight: 600; }
+
+/* Amort modal info line */
+.amort-modal-info {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.amort-modal-info strong { color: var(--text); }
+
+/* Schedule button on debt items */
+.btn-action.btn-schedule:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 /* === Amortization Table === */
 .amort-table-wrap {
   max-height: 400px;
@@ -1058,6 +1130,13 @@ main {
 .modal.modal-sm { max-width: 420px; }
 .modal.modal-md { max-width: 560px; }
 .modal.modal-lg { max-width: 560px; max-height: 90vh; }
+.modal.modal-xl { max-width: 800px; max-height: 90vh; }
+
+/* Amort preview/viewer modals stack above other modals */
+#amort-preview-overlay,
+#amort-viewer-overlay {
+  z-index: 5500;
+}
 
 .modal-header {
   display: flex;

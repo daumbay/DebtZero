@@ -180,7 +180,6 @@ function render() {
   renderMilestones();
   renderMotivation();
   renderStreak();
-  renderAmortViewer();
   renderDueWarnings();
 }
 
@@ -666,6 +665,9 @@ function renderDebtList() {
     const purchaseBtn = d.type === 'credit_card'
       ? `<button class="btn-action btn-purchase" data-action="purchase" data-index="${i}">+ Purchase</button>`
       : '';
+    const scheduleBtn = (d.amort && d.amort.schedule)
+      ? `<button class="btn-action btn-schedule" data-action="view-amort" data-index="${i}">Schedule</button>`
+      : '';
 
     return `
     <div class="debt-item">
@@ -685,6 +687,7 @@ function renderDebtList() {
       <div class="debt-actions">
         <button class="btn-action btn-pay" data-action="pay" data-index="${i}">Pay</button>
         ${purchaseBtn}
+        ${scheduleBtn}
         <button class="btn-delete" data-action="delete" data-index="${i}" title="Remove debt">&times;</button>
       </div>
     </div>`;
@@ -702,6 +705,8 @@ $('#debt-list').addEventListener('click', (e) => {
     openPaymentModal(idx);
   } else if (action === 'purchase') {
     openPurchaseModal(idx);
+  } else if (action === 'view-amort') {
+    openAmortViewerModal(idx);
   } else if (action === 'delete') {
     if (!confirm(`Remove "${debts[idx].name}"? This cannot be undone.`)) return;
     debts.splice(idx, 1);
@@ -1006,6 +1011,18 @@ function updateAmortPreview() {
 
 $('#debt-form').addEventListener('submit', (e) => {
   e.preventDefault();
+
+  // If amort is enabled, require preview first (unless already confirmed)
+  if (debtTypeSelect.value === 'loan' && amortCheckbox.checked && !confirmedSchedule) {
+    // Trigger preview instead of direct submit
+    $('#btn-preview-schedule').click();
+    return;
+  }
+
+  submitDebtForm();
+});
+
+function submitDebtForm() {
   const type = debtTypeSelect.value;
   const name = $('#debt-name').value.trim();
   const balance = parseFloat($('#debt-balance').value);
@@ -1019,21 +1036,24 @@ $('#debt-form').addEventListener('submit', (e) => {
   if (dueDay && dueDay >= 1 && dueDay <= 31) debt.dueDay = dueDay;
 
   // Amortization data
-  if (type === 'loan' && amortCheckbox.checked) {
-    const principal = parseFloat($('#amort-principal').value);
-    const term = parseInt($('#amort-term').value);
-    const emi = parseFloat($('#amort-emi').value);
+  if (type === 'loan' && amortCheckbox.checked && confirmedSchedule) {
+    const principal = parseFloat($('#amort-principal').value) || balance;
+    const term = confirmedSchedule.length;
+    const emi = confirmedSchedule[0] ? confirmedSchedule[0].emi : minimum;
     const made = parseInt($('#amort-payments-made').value) || 0;
     const startDate = $('#amort-start-date').value || null;
 
-    if (principal && term) {
-      const monthlyRate = rate / 100 / 12;
-      const calcEmi = emi || (principal * monthlyRate * Math.pow(1 + monthlyRate, term)) / (Math.pow(1 + monthlyRate, term) - 1);
-      debt.amort = { principal, term, emi: calcEmi, paymentsMade: made };
-      if (startDate) debt.amort.startDate = startDate;
-      debt.original = principal;
-      debt.minimum = calcEmi;
-    }
+    debt.amort = {
+      principal,
+      term,
+      emi,
+      paymentsMade: made,
+      schedule: confirmedSchedule,
+      source: amortSource,
+    };
+    if (startDate) debt.amort.startDate = startDate;
+    debt.original = principal;
+    debt.minimum = emi;
   }
 
   debts.push(debt);
@@ -1046,49 +1066,28 @@ $('#debt-form').addEventListener('submit', (e) => {
   amortFields.style.display = 'none';
   amortCheckbox.checked = false;
   $('#amort-preview').innerHTML = '';
+  confirmedSchedule = null;
+  pendingCSVSchedule = null;
+  amortSource = 'calculator';
+  $$('.amort-src-btn').forEach(b => b.classList.remove('active'));
+  $$('.amort-src-btn')[0].classList.add('active');
+  $('#amort-calc-panel').style.display = 'block';
+  $('#amort-csv-panel').style.display = 'none';
+  $('#csv-status').textContent = '';
   showToast(`"${name}" added!`);
-});
-
-// ============================================================
-// AMORTIZATION SCHEDULE VIEWER
-// ============================================================
-function renderAmortViewer() {
-  const amortDebts = debts.filter(d => d.amort);
-  const section = $('#amort-viewer-section');
-
-  if (amortDebts.length === 0) {
-    section.style.display = 'none';
-    return;
-  }
-  section.style.display = 'block';
-
-  const select = $('#amort-viewer-select');
-  const currentVal = select.value;
-  select.innerHTML = amortDebts.map((d, i) =>
-    `<option value="${i}">${escapeHtml(d.name)}</option>`
-  ).join('');
-  if (currentVal) select.value = currentVal;
-
-  renderAmortTable();
 }
 
-$('#amort-viewer-select').addEventListener('change', renderAmortTable);
+// ============================================================
+// AMORTIZATION SCHEDULE SYSTEM
+// ============================================================
 
-function renderAmortTable() {
-  const amortDebts = debts.filter(d => d.amort);
-  const idx = parseInt($('#amort-viewer-select').value) || 0;
-  const debt = amortDebts[idx];
-  if (!debt || !debt.amort) {
-    $('#amort-table-wrap').innerHTML = '';
-    return;
-  }
-
-  const { principal, term, emi, paymentsMade, startDate } = debt.amort;
-  const monthlyRate = debt.rate / 100 / 12;
-  const rows = [];
+// --- Generate schedule from calculator parameters ---
+function generateScheduleFromCalc(principal, term, rate, emi, paymentsMade, startDate) {
+  const monthlyRate = rate / 100 / 12;
+  const calcEmi = emi || (principal * monthlyRate * Math.pow(1 + monthlyRate, term)) / (Math.pow(1 + monthlyRate, term) - 1);
+  const schedule = [];
   let balance = principal;
 
-  // Calculate dates if startDate exists
   let rowDate = null;
   if (startDate) {
     const sd = new Date(startDate + 'T00:00:00');
@@ -1097,60 +1096,321 @@ function renderAmortTable() {
 
   for (let i = 1; i <= term; i++) {
     const interest = balance * monthlyRate;
-    const principalPart = Math.min(emi - interest, balance);
+    const principalPart = Math.min(calcEmi - interest, balance);
     balance = Math.max(0, balance - principalPart);
-    const isPast = i <= paymentsMade;
-    const isCurrent = i === paymentsMade + 1;
 
-    let dateStr = '';
+    let date = '';
     if (rowDate) {
-      dateStr = fmtDate(rowDate.toISOString().slice(0, 10));
+      date = rowDate.toISOString().slice(0, 10);
       rowDate = new Date(rowDate.getFullYear(), rowDate.getMonth() + 1, rowDate.getDate());
     }
 
-    rows.push({
+    schedule.push({
       month: i,
-      dateStr,
-      payment: emi,
-      principal: principalPart,
-      interest,
-      balance,
-      isPast,
-      isCurrent,
+      date,
+      balance: Math.round(balance * 100) / 100,
+      emi: Math.round(calcEmi * 100) / 100,
+      principal: Math.round(principalPart * 100) / 100,
+      interest: Math.round(interest * 100) / 100,
+    });
+  }
+  return schedule;
+}
+
+// --- Parse CSV into schedule ---
+function parseAmortCSV(csvText) {
+  const lines = csvText.trim().split(/\r?\n/);
+  if (lines.length < 2) throw new Error('CSV must have a header row and at least one data row.');
+
+  const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const reqCols = ['date', 'outstanding balance', 'emi', 'principal component', 'interest component'];
+  const colMap = {};
+  reqCols.forEach(col => {
+    const idx = header.findIndex(h => h.includes(col.split(' ')[0]) && (col.split(' ').length === 1 || h.includes(col.split(' ')[1])));
+    if (idx === -1) throw new Error(`Missing column: "${col}". Found: ${header.join(', ')}`);
+    colMap[col] = idx;
+  });
+
+  const schedule = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const cols = line.split(',').map(c => c.trim());
+
+    const dateRaw = cols[colMap['date']] || '';
+    const balance = parseFloat(cols[colMap['outstanding balance']]);
+    const emi = parseFloat(cols[colMap['emi']]);
+    const principal = parseFloat(cols[colMap['principal component']]);
+    const interest = parseFloat(cols[colMap['interest component']]);
+
+    if (isNaN(balance) || isNaN(emi) || isNaN(principal) || isNaN(interest)) {
+      throw new Error(`Invalid number on row ${i + 1}.`);
+    }
+
+    // Try to parse date into ISO format
+    let date = '';
+    if (dateRaw) {
+      const parsed = new Date(dateRaw);
+      if (!isNaN(parsed)) {
+        date = parsed.toISOString().slice(0, 10);
+      } else {
+        date = dateRaw; // keep as-is
+      }
+    }
+
+    schedule.push({
+      month: i,
+      date,
+      balance: Math.round(balance * 100) / 100,
+      emi: Math.round(emi * 100) / 100,
+      principal: Math.round(principal * 100) / 100,
+      interest: Math.round(interest * 100) / 100,
     });
   }
 
-  const hasDate = rows.some(r => r.dateStr);
+  if (schedule.length === 0) throw new Error('No data rows found in CSV.');
+  return schedule;
+}
 
-  const html = `
+// --- Generate CSV string from schedule ---
+function generateCSVFromSchedule(schedule) {
+  const header = 'Date,Outstanding Balance,EMI,Principal Component,Interest Component';
+  const rows = schedule.map(r =>
+    `${r.date},${r.balance.toFixed(2)},${r.emi.toFixed(2)},${r.principal.toFixed(2)},${r.interest.toFixed(2)}`
+  );
+  return header + '\n' + rows.join('\n');
+}
+
+// --- Download CSV ---
+function downloadCSV(schedule, filename) {
+  const csv = generateCSVFromSchedule(schedule);
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// --- Generate CSV template ---
+function generateCSVTemplate() {
+  const header = 'Date,Outstanding Balance,EMI,Principal Component,Interest Component';
+  const example = '2025-01-15,24500.00,483.15,275.48,207.67';
+  return header + '\n' + example;
+}
+
+// --- Render amort table into a container element ---
+function renderAmortTableInto(container, schedule, paymentsMade) {
+  if (!schedule || schedule.length === 0) {
+    container.innerHTML = '<p class="empty-state">No schedule data.</p>';
+    return;
+  }
+
+  const hasDate = schedule.some(r => r.date);
+  const made = paymentsMade || 0;
+
+  container.innerHTML = `
     <table class="amort-table">
       <thead>
         <tr>
           <th>#</th>
           ${hasDate ? '<th>Date</th>' : ''}
-          <th>Payment</th>
+          <th>EMI</th>
           <th>Principal</th>
           <th>Interest</th>
           <th>Balance</th>
         </tr>
       </thead>
       <tbody>
-        ${rows.map(r => `
-          <tr class="${r.isPast ? 'past-row' : ''} ${r.isCurrent ? 'current-row' : ''}">
+        ${schedule.map(r => {
+          const isPast = r.month <= made;
+          const isCurrent = r.month === made + 1;
+          return `
+          <tr class="${isPast ? 'past-row' : ''} ${isCurrent ? 'current-row' : ''}">
             <td>${r.month}</td>
-            ${hasDate ? `<td>${r.dateStr}</td>` : ''}
-            <td>${fmt(r.payment)}</td>
+            ${hasDate ? `<td>${r.date ? fmtDate(r.date) : ''}</td>` : ''}
+            <td>${fmt(r.emi)}</td>
             <td>${fmt(r.principal)}</td>
             <td>${fmt(r.interest)}</td>
             <td>${fmt(r.balance)}</td>
-          </tr>
-        `).join('')}
+          </tr>`;
+        }).join('')}
       </tbody>
     </table>
   `;
-
-  $('#amort-table-wrap').innerHTML = html;
 }
+
+// --- Amort source toggle in add-debt form ---
+let amortSource = 'calculator';
+let pendingCSVSchedule = null;
+
+$$('.amort-src-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('.amort-src-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    amortSource = btn.dataset.source;
+    $('#amort-calc-panel').style.display = amortSource === 'calculator' ? 'block' : 'none';
+    $('#amort-csv-panel').style.display = amortSource === 'csv' ? 'block' : 'none';
+  });
+});
+
+// CSV template download
+$('#btn-csv-template').addEventListener('click', () => {
+  const csv = generateCSVTemplate();
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'amortization-template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Template downloaded!');
+});
+
+// CSV file input
+$('#csv-file-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = $('#csv-status');
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      pendingCSVSchedule = parseAmortCSV(evt.target.result);
+      statusEl.className = 'csv-status csv-ok';
+      statusEl.textContent = `Parsed ${pendingCSVSchedule.length} rows successfully. Click "Preview Schedule" to review.`;
+    } catch (err) {
+      pendingCSVSchedule = null;
+      statusEl.className = 'csv-status csv-err';
+      statusEl.textContent = 'Error: ' + err.message;
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+// Preview Schedule button
+let pendingPreviewSchedule = null;
+let pendingPreviewCallback = null;
+
+$('#btn-preview-schedule').addEventListener('click', () => {
+  let schedule = null;
+
+  if (amortSource === 'csv') {
+    if (!pendingCSVSchedule) {
+      showToast('Please upload a CSV file first.', 'error');
+      return;
+    }
+    schedule = pendingCSVSchedule;
+  } else {
+    const principal = parseFloat($('#amort-principal').value);
+    const term = parseInt($('#amort-term').value);
+    const rate = parseFloat($('#debt-rate').value);
+    const emi = parseFloat($('#amort-emi').value) || 0;
+    const made = parseInt($('#amort-payments-made').value) || 0;
+    const startDate = $('#amort-start-date').value || null;
+
+    if (!principal || !term || !rate) {
+      showToast('Please fill in Principal, Term, and Interest Rate.', 'error');
+      return;
+    }
+    schedule = generateScheduleFromCalc(principal, term, rate, emi, made, startDate);
+  }
+
+  openAmortPreviewModal(schedule);
+});
+
+// --- Preview Modal ---
+function openAmortPreviewModal(schedule) {
+  pendingPreviewSchedule = schedule;
+  const totalInterest = schedule.reduce((s, r) => s + r.interest, 0);
+  const totalEmi = schedule.reduce((s, r) => s + r.emi, 0);
+  $('#amort-preview-info').innerHTML = `<strong>${schedule.length} payments</strong> &middot; Total EMI: ${fmt(totalEmi)} &middot; Total Interest: ${fmt(totalInterest)}`;
+  renderAmortTableInto($('#amort-preview-table'), schedule, 0);
+  openModal('amort-preview-overlay');
+}
+
+$('#amort-preview-export').addEventListener('click', () => {
+  if (pendingPreviewSchedule) {
+    const name = $('#debt-name').value.trim() || 'schedule';
+    downloadCSV(pendingPreviewSchedule, `amortization-${name}-${todayISO()}.csv`);
+    showToast('Schedule exported as CSV!');
+  }
+});
+
+// Confirm from preview modal — triggers the actual debt form submission
+$('#amort-preview-confirm').addEventListener('click', () => {
+  closeModal('amort-preview-overlay');
+  // Store the confirmed schedule and submit the form programmatically
+  confirmedSchedule = pendingPreviewSchedule;
+  submitDebtForm();
+});
+
+let confirmedSchedule = null;
+
+// --- Viewer Modal (for existing debts) ---
+let viewerDebtIdx = null;
+
+function openAmortViewerModal(idx) {
+  const debt = debts[idx];
+  if (!debt || !debt.amort || !debt.amort.schedule) return;
+  viewerDebtIdx = idx;
+
+  const schedule = debt.amort.schedule;
+  const made = debt.amort.paymentsMade || 0;
+  const totalInterest = schedule.reduce((s, r) => s + r.interest, 0);
+  const totalEmi = schedule.reduce((s, r) => s + r.emi, 0);
+
+  $('#amort-viewer-info').innerHTML = `<strong>${escapeHtml(debt.name)}</strong> &middot; ${schedule.length} payments &middot; Total Interest: ${fmt(totalInterest)}`;
+  renderAmortTableInto($('#amort-viewer-table'), schedule, made);
+  openModal('amort-viewer-overlay');
+}
+
+$('#amort-viewer-export').addEventListener('click', () => {
+  if (viewerDebtIdx !== null && debts[viewerDebtIdx] && debts[viewerDebtIdx].amort && debts[viewerDebtIdx].amort.schedule) {
+    const debt = debts[viewerDebtIdx];
+    downloadCSV(debt.amort.schedule, `amortization-${debt.name}-${todayISO()}.csv`);
+    showToast('Schedule exported as CSV!');
+  }
+});
+
+$('#amort-viewer-csv-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file || viewerDebtIdx === null) return;
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const schedule = parseAmortCSV(evt.target.result);
+      debts[viewerDebtIdx].amort.schedule = schedule;
+      debts[viewerDebtIdx].amort.source = 'csv';
+      save();
+      openAmortViewerModal(viewerDebtIdx); // refresh
+      showToast(`Schedule updated from CSV (${schedule.length} rows).`);
+    } catch (err) {
+      showToast('CSV import error: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+// --- Migration: auto-generate schedule for existing amort debts without one ---
+(function migrateAmortSchedules() {
+  let changed = false;
+  debts.forEach(d => {
+    if (d.amort && !d.amort.schedule) {
+      const { principal, term, emi, paymentsMade, startDate } = d.amort;
+      if (principal && term && d.rate) {
+        d.amort.schedule = generateScheduleFromCalc(principal, term, d.rate, emi, paymentsMade || 0, startDate || null);
+        d.amort.source = 'calculator';
+        changed = true;
+      }
+    }
+  });
+  if (changed) localStorage.setItem('debtzero_debts', JSON.stringify(debts));
+})();
 
 // ============================================================
 // HELPERS
@@ -1229,7 +1489,7 @@ function renderDataMeta() {
 // Export
 $('#btn-export').addEventListener('click', () => {
   const data = {
-    version: 4,
+    version: 5,
     exportDate: new Date().toISOString(),
     debts,
     transactions,
